@@ -1,95 +1,124 @@
-import Image from 'next/image'
-import styles from './page.module.css'
+'use client';
+
+import { Flex, Text, Button, SimpleGrid, Spinner } from '@chakra-ui/react';
+
+import { useEffect, useState } from 'react';
+import { useAccount, useSignMessage } from 'wagmi';
+import { Contract, Interface, JsonRpcProvider } from 'ethers';
+import { Web3Button } from '@web3modal/react';
+import { getValhallaFiles, getValhallaFile } from './utils/requests';
 
 export default function Home() {
+  const { address } = useAccount();
+  const { data, isLoading, isSuccess, signMessage } = useSignMessage({
+    message: 'gm raidguild member'
+  });
+
+  const [files, setFiles] = useState([]);
+
+  const [isMember, setIsMember] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+
+  const getMemberShares = async () => {
+    const abi = new Interface([
+      'function members(address account) view returns (address, uint256, uint256, bool, uint256, uint256)'
+    ]);
+    const contract = new Contract(
+      '0xfe1084bc16427e5eb7f13fc19bcd4e641f7d571f',
+      abi,
+      new JsonRpcProvider('https://rpc.ankr.com/gnosis')
+    );
+
+    const member = await contract.members(address);
+    setIsMember(member[3]);
+  };
+
+  const listFiles = async () => {
+    setIsFetching(true);
+    const files = await getValhallaFiles(data);
+    setFiles(files);
+    setIsFetching(false);
+  };
+
+  const getFile = async (key) => {
+    setIsFetching(true);
+    const file = await getValhallaFile(data, key);
+    setIsFetching(false);
+    window.open(file, '_blank');
+  };
+
+  useEffect(() => {
+    if (isSuccess) listFiles();
+  }, [isSuccess]);
+
+  useEffect(() => {
+    if (address) {
+      getMemberShares();
+    }
+  }, [address]);
+
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>app/page.js</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore the Next.js 13 playground.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+    <Flex
+      direction='column'
+      w='100%'
+      alignItems='center'
+      justifyContent='center'
+    >
+      {address ? (
+        isMember ? (
+          !data ? (
+            <Button
+              mx='auto'
+              bg='#fe3965'
+              color='white'
+              isLoading={isLoading}
+              _hover={{
+                opacity: 0.8
+              }}
+              onClick={() => {
+                try {
+                  signMessage();
+                } catch (err) {
+                  console.log(err);
+                }
+              }}
+            >
+              Check in to valhalla
+            </Button>
+          ) : isFetching ? (
+            <Spinner size='xl' />
+          ) : (
+            <SimpleGrid w='100%' columns={{ lg: 3, md: 2, sm: 1 }} gap={2}>
+              {files.slice(1).map((file, index) => (
+                <Button
+                  px='10px'
+                  py='10px'
+                  cursor='pointer'
+                  fontWeight='normal'
+                  border='2px solid white'
+                  bg='black'
+                  color='white'
+                  _hover={{
+                    opacity: 0.7
+                  }}
+                  key={index}
+                  isLoading={isFetching}
+                  loadingText='Querying..'
+                  onClick={() => {
+                    getFile(file.Key);
+                  }}
+                >
+                  {file.Key.slice(9, -5)}
+                </Button>
+              ))}
+            </SimpleGrid>
+          )
+        ) : (
+          <Text>Not a member</Text>
+        )
+      ) : (
+        <Web3Button />
+      )}
+    </Flex>
+  );
 }
