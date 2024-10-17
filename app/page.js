@@ -1,124 +1,119 @@
-'use client';
+"use client";
 
-import { Flex, Text, Button, SimpleGrid, Spinner } from '@chakra-ui/react';
+import { useEffect, useState } from "react";
+import { useAccount, useBalance, useSignMessage } from "wagmi";
+import { Flex, Button, SimpleGrid, Spinner } from "@chakra-ui/react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { getValhallaFiles, getValhallaFile } from "./utils/requests";
+import { gnosis } from "viem/chains";
 
-import { useEffect, useState } from 'react';
-import { useAccount, useSignMessage } from 'wagmi';
-import { Contract, Interface, JsonRpcProvider } from 'ethers';
-import { Web3Button } from '@web3modal/react';
-import { getValhallaFiles, getValhallaFile } from './utils/requests';
+const SHARES_TOKEN_ADDRESS = '0x372fc5a6b0b12ae174f09f6fc849a83de6b503b6';
+const MEMBERSHIP_THRESHOLD = 100;
 
 export default function Home() {
   const { address } = useAccount();
-  const { data, isLoading, isSuccess, signMessage } = useSignMessage({
-    message: 'gm raidguild member'
+  const { data: signatureData, signMessage, isLoading: isSignLoading, isSuccess: isSignSuccess } = useSignMessage()
+  
+  const { data: shares } = useBalance({
+    token: SHARES_TOKEN_ADDRESS,
+    address,
+    chainId: gnosis.chainId
   });
 
   const [files, setFiles] = useState([]);
-
   const [isMember, setIsMember] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
 
-  const getMemberShares = async () => {
-    const abi = new Interface([
-      'function members(address account) view returns (address, uint256, uint256, bool, uint256, uint256)'
-    ]);
-    const contract = new Contract(
-      '0xfe1084bc16427e5eb7f13fc19bcd4e641f7d571f',
-      abi,
-      new JsonRpcProvider('https://rpc.ankr.com/gnosis')
-    );
 
-    const member = await contract.members(address);
-    setIsMember(member[3]);
-  };
+  console.log({signatureData})
+
+  useEffect(() => {
+    
+    if (shares && shares?.formatted >= MEMBERSHIP_THRESHOLD) {
+      setIsMember(true);
+    }
+
+    
+  }, [shares, address]);
+
+  
 
   const listFiles = async () => {
     setIsFetching(true);
-    const files = await getValhallaFiles(data);
-    setFiles(files);
-    setIsFetching(false);
+    try {
+      const fetchedFiles = await getValhallaFiles(signatureData);
+      setFiles(fetchedFiles);
+    } catch (error) {
+      console.error("Error fetching files:", error);
+    } finally {
+      setIsFetching(false);
+    }
   };
 
   const getFile = async (key) => {
     setIsFetching(true);
-    const file = await getValhallaFile(data, key);
-    setIsFetching(false);
-    window.open(file, '_blank');
+    try {
+      const file = await getValhallaFile(signatureData, key);
+      window.open(file, "_blank");
+    } catch (error) {
+      console.error("Error getting file:", error);
+    } finally {
+      setIsFetching(false);
+    }
   };
 
-  useEffect(() => {
-    if (isSuccess) listFiles();
-  }, [isSuccess]);
+  
 
-  useEffect(() => {
-    if (address) {
-      getMemberShares();
+  const renderContent = () => {
+    if (isFetching) return <Spinner size="xl" />;
+    if (!address) return <ConnectButton />;
+    if (isMember && !isSignSuccess) {
+      return (
+        <Button
+          mx="auto"
+          bg="#fe3965"
+          color="white"
+          isLoading={isSignLoading}
+          _hover={{ opacity: 0.8 }}
+          onClick={() => signMessage({ message: 'gm raidguild member' })}
+        >
+          Check in to Valhalla
+        </Button>
+      );
     }
-  }, [address]);
+    
+    return (
+      <SimpleGrid w="100%" columns={{ lg: 3, md: 2, sm: 1 }} gap={2}>
+        {files.slice(1).map((file, index) => (
+          <Button
+            key={index}
+            px="10px"
+            py="10px"
+            cursor="pointer"
+            fontWeight="normal"
+            border="2px solid white"
+            bg="black"
+            color="white"
+            _hover={{ opacity: 0.7 }}
+            isLoading={isFetching}
+            loadingText="Querying.."
+            onClick={() => getFile(file.Key)}
+          >
+            {file.Key.slice(9, -5)}
+          </Button>
+        ))}
+      </SimpleGrid>
+    );
+  };
 
   return (
     <Flex
-      direction='column'
-      w='100%'
-      alignItems='center'
-      justifyContent='center'
+      direction="column"
+      w="100%"
+      alignItems="center"
+      justifyContent="center"
     >
-      {address ? (
-        isMember ? (
-          !data ? (
-            <Button
-              mx='auto'
-              bg='#fe3965'
-              color='white'
-              isLoading={isLoading}
-              _hover={{
-                opacity: 0.8
-              }}
-              onClick={() => {
-                try {
-                  signMessage();
-                } catch (err) {
-                  console.log(err);
-                }
-              }}
-            >
-              Check in to valhalla
-            </Button>
-          ) : isFetching ? (
-            <Spinner size='xl' />
-          ) : (
-            <SimpleGrid w='100%' columns={{ lg: 3, md: 2, sm: 1 }} gap={2}>
-              {files.slice(1).map((file, index) => (
-                <Button
-                  px='10px'
-                  py='10px'
-                  cursor='pointer'
-                  fontWeight='normal'
-                  border='2px solid white'
-                  bg='black'
-                  color='white'
-                  _hover={{
-                    opacity: 0.7
-                  }}
-                  key={index}
-                  isLoading={isFetching}
-                  loadingText='Querying..'
-                  onClick={() => {
-                    getFile(file.Key);
-                  }}
-                >
-                  {file.Key.slice(9, -5)}
-                </Button>
-              ))}
-            </SimpleGrid>
-          )
-        ) : (
-          <Text>Not a member</Text>
-        )
-      ) : (
-        <Web3Button />
-      )}
+      {renderContent()}
     </Flex>
   );
 }
