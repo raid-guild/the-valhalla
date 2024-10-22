@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { s3Client } from "../../config";
 import axios from "axios";
 
-const bucketParams = { Bucket: "raidguild" };
+const bucketParams = { Bucket: "raid-guild-valhalla" };
 
 export async function POST(req) {
   const request = await req.json();
@@ -12,7 +12,7 @@ export async function POST(req) {
   // Verify the message using the provided signature
   const address = verifyMessage(
     "gm raidguild member",
-    request.signature.toString(),
+    request.signature.toString()
   );
 
   try {
@@ -33,11 +33,11 @@ export async function POST(req) {
         headers: {
           Origin: "https://admin.daohaus.club",
         },
-      },
+      }
     );
 
     const members = response.data.data.members.map((member) =>
-      member.memberAddress.toLowerCase(),
+      member.memberAddress.toLowerCase()
     );
 
     if (members.includes(address.toLowerCase())) {
