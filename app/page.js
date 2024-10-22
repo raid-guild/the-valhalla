@@ -101,7 +101,9 @@ export default function Home() {
             loadingText="Querying.."
             onClick={() => getFile(file.Key)}
           >
-            {file.Key.slice(9, -5)}
+            {file.Key.length > 30
+              ? `${file.Key.slice(0, 25)}...`
+              : file.Key.slice(0, -5)}
           </Button>
         ))}
       </SimpleGrid>
