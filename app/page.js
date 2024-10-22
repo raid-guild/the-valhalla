@@ -41,7 +41,6 @@ export default function Home() {
     setIsFetching(true);
     try {
       const fetchedFiles = await getValhallaFiles(signatureData);
-      console.log({ fetchedFiles });
       setFiles(fetchedFiles);
     } catch (error) {
       console.error("Error fetching files:", error);
@@ -54,6 +53,7 @@ export default function Home() {
     setIsFetching(true);
     try {
       const file = await getValhallaFile(signatureData, key);
+
       window.open(file, "_blank");
     } catch (error) {
       console.error("Error getting file:", error);
