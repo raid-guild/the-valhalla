@@ -12,7 +12,7 @@ export async function POST(req) {
   // Verify the message using the provided signature
   const address = verifyMessage(
     "gm raidguild member",
-    request.signature.toString()
+    request.signature.toString(),
   );
 
   try {
@@ -33,16 +33,15 @@ export async function POST(req) {
         headers: {
           Origin: "https://admin.daohaus.club",
         },
-      }
+      },
     );
 
     const members = response.data.data.members.map((member) =>
-      member.memberAddress.toLowerCase()
+      member.memberAddress.toLowerCase(),
     );
 
     if (members.includes(address.toLowerCase())) {
       const data = await s3Client.send(new ListObjectsCommand(bucketParams));
-      console.log({ data });
       return NextResponse.json({ response: data.Contents });
     } else {
       return NextResponse.json({ error: "Member not found." }, { status: 404 });
