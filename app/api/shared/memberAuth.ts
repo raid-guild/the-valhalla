@@ -1,7 +1,8 @@
 import axios from "axios";
 
 export const MEMBER_SIGN_MESSAGE = "gm raidguild member";
-export const NOT_MEMBER_ERROR = "Your wallet address is not a RaidGuild member.";
+export const NOT_MEMBER_ERROR =
+  "Your wallet address is not a RaidGuild member.";
 
 export type SignatureRequestBody = {
   signature: string;
@@ -20,7 +21,7 @@ export type MembersQueryResponse = {
 };
 
 export function isSignatureRequestBody(
-  value: unknown
+  value: unknown,
 ): value is SignatureRequestBody {
   if (!value || typeof value !== "object") {
     return false;
@@ -30,7 +31,9 @@ export function isSignatureRequestBody(
   return typeof candidate.signature === "string";
 }
 
-export function isChannelRequestBody(value: unknown): value is ChannelRequestBody {
+export function isChannelRequestBody(
+  value: unknown,
+): value is ChannelRequestBody {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -58,10 +61,10 @@ export async function fetchMemberAddresses(): Promise<string[]> {
       headers: {
         Origin: "https://admin.daohaus.club",
       },
-    }
+    },
   );
 
   return response.data.data.members.map((member) =>
-    member.memberAddress.toLowerCase()
+    member.memberAddress.toLowerCase(),
   );
 }

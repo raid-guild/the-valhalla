@@ -65,7 +65,7 @@ const HomeContent = () => {
   });
 
   const [channelsBeingFetched, setChannelsBeingFetched] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   const { mutate: openFileChannel, error: fileError } = useMutation<
@@ -106,7 +106,7 @@ const HomeContent = () => {
 
   const errorMessage = actionError || fileError?.message || filesError?.message;
 
-  if (isFilesFetching || isSharesLoading || isSharesFetching)
+  if (isFilesFetching || isSharesLoading || isSharesFetching || isConnecting)
     return <Spinner size="xl" />;
   if (!address && !isConnecting) return <ConnectButton />;
   if (shares !== undefined && !isMember) {

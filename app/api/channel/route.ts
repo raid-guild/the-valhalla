@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     if (!isChannelRequestBody(parsed)) {
       return NextResponse.json(
         { error: "Invalid request body" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     requestBody = parsed;
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         new GetObjectCommand(bucketParams),
         {
           expiresIn: 15 * 60,
-        }
+        },
       );
 
       return NextResponse.json({ channel: url });
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     console.error(error);
     return NextResponse.json(
       { error: "Failed to fetch data" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

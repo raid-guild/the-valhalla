@@ -19,7 +19,7 @@ export const getValhallaFiles = async (signature: string) => {
     return data.data.response;
   } catch (error) {
     throw new Error(
-      getApiErrorMessage(error, "Unable to fetch Valhalla files right now.")
+      getApiErrorMessage(error, "Unable to fetch Valhalla files right now."),
     );
   }
 };
@@ -33,7 +33,10 @@ export const getValhallaFile = async (signature: string, key: string) => {
     return data.data.channel;
   } catch (error) {
     throw new Error(
-      getApiErrorMessage(error, "Unable to fetch this Valhalla file right now.")
+      getApiErrorMessage(
+        error,
+        "Unable to fetch this Valhalla file right now.",
+      ),
     );
   }
 };

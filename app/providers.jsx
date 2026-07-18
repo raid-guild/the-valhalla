@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { ChakraProvider, createSystem, defaultConfig } from '@chakra-ui/react';
+import { ChakraProvider, createSystem, defaultConfig } from "@chakra-ui/react";
 
 const breakpoints = {
-  base: '320px',
-  md: '620px',
-  lg: '1020px'
+  base: "320px",
+  md: "620px",
+  lg: "1020px",
 };
 
 const system = createSystem(defaultConfig, {
@@ -17,7 +17,5 @@ const system = createSystem(defaultConfig, {
 });
 
 export function Providers({ children }) {
-  return (
-      <ChakraProvider value={system}>{children}</ChakraProvider>
-  );
+  return <ChakraProvider value={system}>{children}</ChakraProvider>;
 }
