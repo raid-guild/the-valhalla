@@ -15,7 +15,7 @@ const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
 
 const config = getDefaultConfig({
   appName: "The Valhalla",
-  projectId,
+  projectId: projectId || "",
   chains: [gnosis],
   ssr: true,
 });
@@ -24,7 +24,11 @@ const queryClient = new QueryClient();
 
 const titillium = Titillium_Web({ subsets: ["latin"], weight: ["400"] });
 
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
       <body className={titillium.className}>
@@ -35,7 +39,6 @@ export default function RootLayout({ children }) {
                 <Flex
                   direction="column"
                   justifyContent="space-between"
-                  maxW="80rem"
                   minH="100vh"
                   mx="auto"
                   pt="2rem"
