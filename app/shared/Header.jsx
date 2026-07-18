@@ -1,6 +1,6 @@
 "use client";
 
-import { Flex, Image as ChakraImage } from "@chakra-ui/react";
+import { Steps, Flex, Image as ChakraImage } from "@chakra-ui/react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 import { useAccount } from "wagmi";

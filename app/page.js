@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAccount, useBalance, useSignMessage } from "wagmi";
-import { Flex, Button, SimpleGrid, Spinner } from "@chakra-ui/react";
+import { Steps, Flex, Button, SimpleGrid, Spinner } from "@chakra-ui/react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { getValhallaFiles, getValhallaFile } from "./utils/requests";
 import { gnosis } from "viem/chains";
@@ -75,12 +75,11 @@ export default function Home() {
           mx="auto"
           bg="#fe3965"
           color="white"
-          isLoading={isSignLoading}
+          loading={isSignLoading}
           _hover={{ opacity: 0.8 }}
           onClick={() => signMessage({ message: "gm raidguild member" })}
-        >
-          Check in to Valhalla
-        </Button>
+        >Check in to Valhalla
+                  </Button>
       );
     }
 
@@ -97,7 +96,7 @@ export default function Home() {
             bg="black"
             color="white"
             _hover={{ opacity: 0.7 }}
-            isLoading={isFetching}
+            loading={isFetching}
             loadingText="Querying.."
             onClick={() => getFile(file.Key)}
           >
