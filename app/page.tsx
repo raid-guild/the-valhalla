@@ -1,134 +1,150 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAccount, useBalance, useSignMessage } from "wagmi";
 import { Flex, Button, SimpleGrid, Spinner, Text } from "@chakra-ui/react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { getValhallaFiles, getValhallaFile } from "./utils/requests";
 import { gnosis } from "viem/chains";
 import { _Object } from "@aws-sdk/client-s3";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 const SHARES_TOKEN_ADDRESS = "0x372fc5a6b0b12ae174f09f6fc849a83de6b503b6";
 const MEMBERSHIP_THRESHOLD = 100;
 
 export default function Home() {
-  const { address } = useAccount();
+  return (
+    <Flex
+      direction="column"
+      w="100%"
+      alignItems="center"
+      justifyContent="center"
+    >
+      <HomeContent />
+    </Flex>
+  );
+}
+
+const HomeContent = () => {
+  const { address, isConnecting } = useAccount();
   const {
     data: signatureData,
     signMessage,
     isSuccess: isSignSuccess,
   } = useSignMessage();
 
-  const { data: shares } = useBalance({
+  const {
+    data: shares,
+    isLoading: isSharesLoading,
+    isFetching: isSharesFetching,
+  } = useBalance({
     token: SHARES_TOKEN_ADDRESS,
     address,
     chainId: gnosis.id,
+    query: {
+      refetchOnWindowFocus: false,
+    },
   });
 
-  const [files, setFiles] = useState<_Object[]>([]);
-  const [isMember, setIsMember] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [actionError, setActionError] = useState("");
+  const isMember =
+    !isSharesLoading &&
+    !isSharesFetching &&
+    Number(shares?.formatted || 0) >= MEMBERSHIP_THRESHOLD;
 
-  console.log({ signatureData, files });
+  const {
+    data: files = [],
+    isFetching: isFilesFetching,
+    error: filesError,
+  } = useQuery<_Object[], Error>({
+    queryKey: ["valhalla-files", signatureData],
+    queryFn: () => getValhallaFiles(signatureData as string),
+    enabled: Boolean(signatureData),
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
 
-  useEffect(() => {
-    if (shares && Number(shares?.formatted) >= MEMBERSHIP_THRESHOLD) {
-      setIsMember(true);
-    }
-  }, [shares, address]);
+  const [channelsBeingFetched, setChannelsBeingFetched] = useState<Set<string>>(
+    new Set()
+  );
 
-  const listFiles = async () => {
-    setIsFetching(true);
-    setErrorMessage("");
-    if (!signatureData) {
-      setErrorMessage("Invalid signature");
-      return;
-    }
-    try {
-      const fetchedFiles = await getValhallaFiles(signatureData);
-      setFiles(fetchedFiles);
-    } catch (error) {
-      console.error("Error fetching files:", error);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to fetch files. Please try again."
-      );
-    } finally {
-      setIsFetching(false);
-    }
-  };
+  const { mutate: openFileChannel, error: fileError } = useMutation<
+    string,
+    Error,
+    string
+  >({
+    mutationFn: (key: string) => getValhallaFile(signatureData as string, key),
+    onMutate: (key) =>
+      setChannelsBeingFetched((prev) => {
+        const next = new Set(prev);
+        next.add(key);
+        return next;
+      }),
+    onSuccess: (file) => window.open(file, "_blank"),
+    onSettled: (_, __, key) =>
+      setChannelsBeingFetched((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      }),
+  });
 
-  const getFile = async (key: string | undefined) => {
-    setIsFetching(true);
-    setErrorMessage("");
+  const getFile = (key: string | undefined) => {
+    setActionError("");
     if (!key) {
-      setErrorMessage("Invalid file key");
+      setActionError("Invalid file key");
       return;
     }
 
     if (!signatureData) {
-      setErrorMessage("Invalid signature");
+      setActionError("Invalid signature");
       return;
     }
 
-    try {
-      const file = await getValhallaFile(signatureData, key);
-
-      window.open(file, "_blank");
-    } catch (error) {
-      console.error("Error getting file:", error);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to open file. Please try again."
-      );
-    } finally {
-      setIsFetching(false);
-    }
+    openFileChannel(key);
   };
 
-  useEffect(() => {
-    signatureData && listFiles();
-  }, [signatureData]);
+  const errorMessage = actionError || fileError?.message || filesError?.message;
 
-  const renderContent = () => {
-    if (isFetching) return <Spinner size="xl" />;
-    if (!address) return <ConnectButton />;
-    if (!isMember) {
-      return (
-        <Text color="#fe3965" textAlign="center">
-          Your wallet address is not a RaidGuild member.
-        </Text>
-      );
-    }
-
-    if (isMember && !isSignSuccess) {
-      return (
-        <Button
-          mx="auto"
-          bg="#fe3965"
-          color="white"
-          _hover={{ opacity: 0.8 }}
-          onClick={() => signMessage({ message: "gm raidguild member" })}
-        >
-          Check in to Valhalla
-        </Button>
-      );
-    }
-
+  if (isFilesFetching || isSharesLoading || isSharesFetching)
+    return <Spinner size="xl" />;
+  if (!address && !isConnecting) return <ConnectButton />;
+  if (shares !== undefined && !isMember) {
     return (
-      <Flex direction="column" w="100%" gap={4}>
-        {errorMessage ? (
-          <Text color="#fe3965" textAlign="center">
-            {errorMessage}
-          </Text>
-        ) : null}
-        <SimpleGrid w="100%" columns={{ lg: 3, md: 2, sm: 1 }} gap={2}>
-          {files.slice(1).map((file, index) => (
+      <Text color="#fe3965" textAlign="center">
+        Your wallet address is not a RaidGuild member.
+      </Text>
+    );
+  }
+
+  if (isMember && !isSignSuccess) {
+    return (
+      <Button
+        mx="auto"
+        bg="#fe3965"
+        color="white"
+        _hover={{ opacity: 0.8 }}
+        onClick={() => signMessage({ message: "gm raidguild member" })}
+      >
+        Check in to Valhalla
+      </Button>
+    );
+  }
+
+  return (
+    <Flex direction="column" w="100%" gap={4}>
+      {errorMessage ? (
+        <Text color="#fe3965" textAlign="center">
+          {errorMessage}
+        </Text>
+      ) : null}
+      <SimpleGrid w="100%" columns={{ lg: 3, md: 2, sm: 1 }} gap={2}>
+        {files.slice(1).map((file) => {
+          const key = file.Key;
+          if (!key) return null;
+          return (
             <Button
-              key={index}
+              key={key}
               px="10px"
               py="10px"
               cursor="pointer"
@@ -137,28 +153,15 @@ export default function Home() {
               bg="black"
               color="white"
               _hover={{ opacity: 0.7 }}
-              loading={isFetching}
+              loading={channelsBeingFetched.has(key)}
               loadingText="Querying.."
-              onClick={() => getFile(file.Key)}
+              onClick={() => getFile(key)}
             >
-              {file?.Key?.length && file.Key.length > 30
-                ? `${file.Key?.slice(0, 25)}...`
-                : file.Key?.slice(0, -5)}
+              {key.length > 30 ? `${key.slice(0, 25)}...` : key.slice(0, -5)}
             </Button>
-          ))}
-        </SimpleGrid>
-      </Flex>
-    );
-  };
-
-  return (
-    <Flex
-      direction="column"
-      w="100%"
-      alignItems="center"
-      justifyContent="center"
-    >
-      {renderContent()}
+          );
+        })}
+      </SimpleGrid>
     </Flex>
   );
-}
+};

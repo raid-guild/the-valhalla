@@ -8,7 +8,7 @@ import { gnosis } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
 import { Providers } from "./providers";
-import { Steps, Flex } from "@chakra-ui/react";
+import { Flex } from "@chakra-ui/react";
 import { Header } from "./shared/Header";
 import { Footer } from "./shared/Footer";
 const projectId = process.env.NEXT_PUBLIC_PROJECT_ID;
