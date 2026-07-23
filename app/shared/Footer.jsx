@@ -1,6 +1,6 @@
 "use client";
 
-import { Steps, Flex, Text } from "@chakra-ui/react";
+import { Flex, Text } from "@chakra-ui/react";
 import { GiMedievalGate } from "react-icons/gi";
 
 export const Footer = () => {

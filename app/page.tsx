@@ -124,7 +124,10 @@ const HomeContent = () => {
         bg="#fe3965"
         color="white"
         _hover={{ opacity: 0.8 }}
-        onClick={() => signMessage({ message: "gm raidguild member" })}
+        onClick={() => {
+          if (!address) return;
+          signMessage({ account: address, message: "gm raidguild member" });
+        }}
       >
         Check in to Valhalla
       </Button>
