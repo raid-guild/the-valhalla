@@ -1,5 +1,9 @@
 import axios from "axios";
 
+export type ValhallaFile = {
+  Key: string;
+};
+
 const getApiErrorMessage = (error: unknown, fallbackMessage: string) => {
   if (axios.isAxiosError(error)) {
     const apiMessage = error.response?.data?.error;
@@ -13,7 +17,7 @@ const getApiErrorMessage = (error: unknown, fallbackMessage: string) => {
 
 export const getValhallaFiles = async (signature: string) => {
   try {
-    const data = await axios.post("/api/files", {
+    const data = await axios.post<{ response: ValhallaFile[] }>("/api/files", {
       signature,
     });
     return data.data.response;

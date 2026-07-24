@@ -10,6 +10,7 @@ import {
   type ChannelRequestBody,
   fetchMemberAddresses,
   isChannelRequestBody,
+  logServerError,
 } from "../shared/memberAuth";
 
 export async function POST(req: Request) {
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: NOT_MEMBER_ERROR }, { status: 403 });
     }
   } catch (error: unknown) {
-    console.error(error);
+    logServerError("Error fetching channel", error);
     return NextResponse.json(
       { error: "Failed to fetch data" },
       { status: 500 },
