@@ -1,4 +1,5 @@
 import axios from "axios";
+import { CONFIG } from "../../config";
 
 export const MEMBER_SIGN_MESSAGE = "gm raidguild member";
 export const NOT_MEMBER_ERROR =
@@ -24,6 +25,8 @@ const MEMBER_ADDRESSES_PAGE_SIZE = 400;
 const MEMBER_ADDRESSES_MAX_PAGES = 25;
 const MEMBER_ADDRESSES_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMBER_ADDRESSES_REQUEST_TIMEOUT_MS = 10 * 1000;
+const MEMBERS_SUBGRAPH_ID =
+  "6x9FK3iuhVFaH9sZ39m8bKB5eckax8sjxooBPNKWWK8r";
 const URL_PATTERN = /https?:\/\/\S+/g;
 
 let memberAddressesCache:
@@ -113,9 +116,15 @@ export async function fetchMemberAddresses(): Promise<string[]> {
   const addresses: string[] = [];
   let skip = 0;
 
+  if (!CONFIG.THE_GRAPH_API_KEY) {
+    throw new Error("THE_GRAPH_API_KEY is not configured");
+  }
+
+  const memberSubgraphUrl = `https://gateway-arbitrum.network.thegraph.com/api/${CONFIG.THE_GRAPH_API_KEY}/subgraphs/id/${MEMBERS_SUBGRAPH_ID}`;
+
   for (let page = 0; page < MEMBER_ADDRESSES_MAX_PAGES; page += 1) {
     const response = await axios.post<unknown>(
-      "https://gateway-arbitrum.network.thegraph.com/api/f116eb88884a7cfc10c04aa7e7de7208/subgraphs/id/6x9FK3iuhVFaH9sZ39m8bKB5eckax8sjxooBPNKWWK8r",
+      memberSubgraphUrl,
       {
         query: `
           query listMembers($skip: Int!, $first: Int!) {

@@ -2,6 +2,7 @@ import { S3 } from "@aws-sdk/client-s3";
 
 export const CONFIG = {
   JWT_SECRET: process.env.JWT_SECRET,
+  THE_GRAPH_API_KEY: process.env.THE_GRAPH_API_KEY,
 };
 
 const hasS3Key = Boolean(process.env.S3_KEY);

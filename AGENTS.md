@@ -65,6 +65,7 @@ Known environment variable names:
 - `S3_REGION`
 - `S3_KEY`
 - `S3_SECRET`
+- `THE_GRAPH_API_KEY`
 - `JWT_SECRET`
 
 Document variable names when needed, but never document secret values.
