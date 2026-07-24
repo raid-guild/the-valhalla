@@ -24,6 +24,7 @@ const MEMBER_ADDRESSES_PAGE_SIZE = 400;
 const MEMBER_ADDRESSES_MAX_PAGES = 25;
 const MEMBER_ADDRESSES_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMBER_ADDRESSES_REQUEST_TIMEOUT_MS = 10 * 1000;
+const URL_PATTERN = /https?:\/\/\S+/g;
 
 let memberAddressesCache:
   | {
@@ -63,6 +64,7 @@ export function logServerError(message: string, error: unknown) {
   if (axios.isAxiosError(error)) {
     console.error(message, {
       code: error.code,
+      message: sanitizeLogMessage(error.message),
       name: error.name,
       status: error.response?.status,
     });
@@ -70,11 +72,18 @@ export function logServerError(message: string, error: unknown) {
   }
 
   if (error instanceof Error) {
-    console.error(message, { name: error.name });
+    console.error(message, {
+      message: sanitizeLogMessage(error.message),
+      name: error.name,
+    });
     return;
   }
 
   console.error(message, { type: typeof error });
+}
+
+function sanitizeLogMessage(message: string) {
+  return message.replace(URL_PATTERN, "[redacted-url]");
 }
 
 function isMembersQueryResponse(value: unknown): value is MembersQueryResponse {
@@ -141,7 +150,7 @@ export async function fetchMemberAddresses(): Promise<string[]> {
     if (members.length < MEMBER_ADDRESSES_PAGE_SIZE) {
       memberAddressesCache = {
         addresses,
-        expiresAt: now + MEMBER_ADDRESSES_CACHE_TTL_MS,
+        expiresAt: Date.now() + MEMBER_ADDRESSES_CACHE_TTL_MS,
       };
 
       return addresses;
