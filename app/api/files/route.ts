@@ -1,4 +1,8 @@
-import { ListObjectsCommand } from "@aws-sdk/client-s3";
+import {
+  ListObjectsV2Command,
+  type ListObjectsV2CommandOutput,
+  type _Object,
+} from "@aws-sdk/client-s3";
 import { verifyMessage } from "ethers";
 import { NextResponse } from "next/server";
 import { s3Client } from "../../config";
@@ -8,9 +12,20 @@ import {
   type SignatureRequestBody,
   fetchMemberAddresses,
   isSignatureRequestBody,
+  logServerError,
 } from "../shared/memberAuth";
 
 const bucketParams = { Bucket: "raid-guild-valhalla" };
+
+type ValhallaFile = {
+  Key: string;
+};
+
+function toValhallaFiles(contents: _Object[]): ValhallaFile[] {
+  return contents.flatMap((file) =>
+    file.Key && !file.Key.endsWith("/") ? [{ Key: file.Key }] : [],
+  );
+}
 
 export async function POST(req: Request) {
   let requestBody: SignatureRequestBody;
@@ -41,13 +56,27 @@ export async function POST(req: Request) {
     const members = await fetchMemberAddresses();
 
     if (members.includes(address.toLowerCase())) {
-      const data = await s3Client.send(new ListObjectsCommand(bucketParams));
-      return NextResponse.json({ response: data.Contents });
+      const contents: _Object[] = [];
+      let continuationToken: string | undefined;
+
+      do {
+        const data: ListObjectsV2CommandOutput = await s3Client.send(
+          new ListObjectsV2Command({
+            ...bucketParams,
+            ContinuationToken: continuationToken,
+          }),
+        );
+
+        contents.push(...(data.Contents ?? []));
+        continuationToken = data.NextContinuationToken;
+      } while (continuationToken);
+
+      return NextResponse.json({ response: toValhallaFiles(contents) });
     } else {
       return NextResponse.json({ error: NOT_MEMBER_ERROR }, { status: 403 });
     }
   } catch (error: unknown) {
-    console.error("Error fetching files:", error);
+    logServerError("Error fetching files", error);
     return NextResponse.json({ error: "An error occurred." }, { status: 500 });
   }
 }

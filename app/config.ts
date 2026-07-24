@@ -6,10 +6,13 @@ export const CONFIG = {
 
 export const s3Client = new S3({
   forcePathStyle: false,
-  endpoint: process.env.S3_ENDPOINT || "",
-  region: process.env.S3_REGION || "",
-  credentials: {
-    accessKeyId: process.env.S3_KEY || "",
-    secretAccessKey: process.env.S3_SECRET || "",
-  },
+  endpoint: process.env.S3_ENDPOINT || undefined,
+  region: process.env.S3_REGION || undefined,
+  credentials:
+    process.env.S3_KEY && process.env.S3_SECRET
+      ? {
+          accessKeyId: process.env.S3_KEY,
+          secretAccessKey: process.env.S3_SECRET,
+        }
+      : undefined,
 });
