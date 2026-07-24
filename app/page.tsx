@@ -80,7 +80,10 @@ const HomeContent = () => {
         next.add(key);
         return next;
       }),
-    onSuccess: (file) => window.open(file, "_blank"),
+    onSuccess: (file) => {
+      const openedWindow = window.open(file, "_blank", "noopener,noreferrer");
+      if (openedWindow) openedWindow.opener = null;
+    },
     onSettled: (_, __, key) =>
       setChannelsBeingFetched((prev) => {
         const next = new Set(prev);

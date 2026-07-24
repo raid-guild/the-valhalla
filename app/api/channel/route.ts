@@ -28,7 +28,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const address = verifyMessage(MEMBER_SIGN_MESSAGE, requestBody.signature);
+  let address: string;
+
+  try {
+    address = verifyMessage(MEMBER_SIGN_MESSAGE, requestBody.signature);
+  } catch {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
 
   try {
     const members = await fetchMemberAddresses();

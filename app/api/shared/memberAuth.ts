@@ -20,6 +20,15 @@ export type MembersQueryResponse = {
   };
 };
 
+const MEMBER_ADDRESSES_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let memberAddressesCache:
+  | {
+      addresses: string[];
+      expiresAt: number;
+    }
+  | undefined;
+
 export function isSignatureRequestBody(
   value: unknown,
 ): value is SignatureRequestBody {
@@ -45,6 +54,11 @@ export function isChannelRequestBody(
 }
 
 export async function fetchMemberAddresses(): Promise<string[]> {
+  const now = Date.now();
+  if (memberAddressesCache && memberAddressesCache.expiresAt > now) {
+    return memberAddressesCache.addresses;
+  }
+
   const response = await axios.post<MembersQueryResponse>(
     "https://gateway-arbitrum.network.thegraph.com/api/f116eb88884a7cfc10c04aa7e7de7208/subgraphs/id/6x9FK3iuhVFaH9sZ39m8bKB5eckax8sjxooBPNKWWK8r",
     {
@@ -64,7 +78,14 @@ export async function fetchMemberAddresses(): Promise<string[]> {
     },
   );
 
-  return response.data.data.members.map((member) =>
+  const addresses = response.data.data.members.map((member) =>
     member.memberAddress.toLowerCase(),
   );
+
+  memberAddressesCache = {
+    addresses,
+    expiresAt: now + MEMBER_ADDRESSES_CACHE_TTL_MS,
+  };
+
+  return addresses;
 }
