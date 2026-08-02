@@ -2,17 +2,14 @@ import {
   ListObjectsV2Command,
   type ListObjectsV2CommandOutput,
 } from "@aws-sdk/client-s3";
-import { verifyMessage } from "ethers";
 import { NextResponse } from "next/server";
 import { getS3Bucket, s3Client } from "../../config";
 import {
-  MEMBER_SIGN_MESSAGE,
-  NOT_MEMBER_ERROR,
-  type SignatureRequestBody,
-  fetchMemberAddresses,
-  isSignatureRequestBody,
   logServerError,
+  memberSessionErrorResponse,
+  requireMemberSession,
 } from "../shared/memberAuth";
+import { getSameOrigin } from "../shared/session";
 
 const S3_LIST_PAGE_SIZE = 500;
 const S3_LIST_MAX_PAGES = 10;
@@ -39,64 +36,52 @@ function addValhallaFiles(
   }
 }
 
-export async function POST(req: Request) {
-  let requestBody: SignatureRequestBody;
+export async function POST(request: Request) {
+  if (!getSameOrigin(request)) {
+    return NextResponse.json(
+      { error: "Invalid request origin" },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
 
   try {
-    const parsed = (await req.json()) as unknown;
-    if (!isSignatureRequestBody(parsed)) {
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
+    await requireMemberSession();
+
+    const bucketParams = { Bucket: getS3Bucket() };
+    const files: ValhallaFile[] = [];
+    let continuationToken: string | undefined;
+    let pagesFetched = 0;
+
+    do {
+      if (pagesFetched >= S3_LIST_MAX_PAGES) {
+        throw new Error("S3 file listing exceeded maximum page count");
+      }
+
+      const data: ListObjectsV2CommandOutput = await s3Client.send(
+        new ListObjectsV2Command({
+          ...bucketParams,
+          MaxKeys: S3_LIST_PAGE_SIZE,
+          ContinuationToken: continuationToken,
+        }),
       );
-    }
 
-    requestBody = parsed;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+      pagesFetched += 1;
+      addValhallaFiles(files, data.Contents);
+      continuationToken = data.NextContinuationToken;
+    } while (continuationToken);
 
-  let address: string;
-
-  try {
-    address = verifyMessage(MEMBER_SIGN_MESSAGE, requestBody.signature);
-  } catch {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-  }
-
-  try {
-    const members = await fetchMemberAddresses();
-
-    if (members.includes(address.toLowerCase())) {
-      const bucketParams = { Bucket: getS3Bucket() };
-      const files: ValhallaFile[] = [];
-      let continuationToken: string | undefined;
-      let pagesFetched = 0;
-
-      do {
-        if (pagesFetched >= S3_LIST_MAX_PAGES) {
-          throw new Error("S3 file listing exceeded maximum page count");
-        }
-
-        const data: ListObjectsV2CommandOutput = await s3Client.send(
-          new ListObjectsV2Command({
-            ...bucketParams,
-            MaxKeys: S3_LIST_PAGE_SIZE,
-            ContinuationToken: continuationToken,
-          }),
-        );
-
-        pagesFetched += 1;
-        addValhallaFiles(files, data.Contents);
-        continuationToken = data.NextContinuationToken;
-      } while (continuationToken);
-
-      return NextResponse.json({ response: files });
-    } else {
-      return NextResponse.json({ error: NOT_MEMBER_ERROR }, { status: 403 });
-    }
+    return NextResponse.json(
+      { response: files },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error: unknown) {
+    const sessionErrorResponse = memberSessionErrorResponse(error);
+    if (sessionErrorResponse) return sessionErrorResponse;
+
     logServerError("Error fetching files", error);
-    return NextResponse.json({ error: "An error occurred." }, { status: 500 });
+    return NextResponse.json(
+      { error: "An error occurred." },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }

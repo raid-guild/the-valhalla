@@ -1,19 +1,38 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { verifyMessage } from "ethers";
 import { NextResponse } from "next/server";
 
 import { getS3Bucket, s3Client } from "../../config";
 import {
-  MEMBER_SIGN_MESSAGE,
-  NOT_MEMBER_ERROR,
   type ChannelRequestBody,
-  fetchMemberAddresses,
   isChannelRequestBody,
   logServerError,
+  memberSessionErrorResponse,
+  requireMemberSession,
 } from "../shared/memberAuth";
+import { getSameOrigin } from "../shared/session";
 
 export async function POST(req: Request) {
+  if (!getSameOrigin(req)) {
+    return NextResponse.json(
+      { error: "Invalid request origin" },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  try {
+    await requireMemberSession();
+  } catch (error: unknown) {
+    const sessionErrorResponse = memberSessionErrorResponse(error);
+    if (sessionErrorResponse) return sessionErrorResponse;
+
+    logServerError("Error authorizing channel request", error);
+    return NextResponse.json(
+      { error: "Failed to fetch data" },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   let requestBody: ChannelRequestBody;
 
   try {
@@ -21,48 +40,40 @@ export async function POST(req: Request) {
     if (!isChannelRequestBody(parsed)) {
       return NextResponse.json(
         { error: "Invalid request body" },
-        { status: 400 },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
       );
     }
     requestBody = parsed;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  let address: string;
-
-  try {
-    address = verifyMessage(MEMBER_SIGN_MESSAGE, requestBody.signature);
-  } catch {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON" },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   try {
-    const members = await fetchMemberAddresses();
+    const bucketParams = {
+      Bucket: getS3Bucket(),
+      Key: requestBody.key,
+    };
 
-    if (members.includes(address.toLowerCase())) {
-      const bucketParams = {
-        Bucket: getS3Bucket(),
-        Key: requestBody.key,
-      };
+    const url = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand(bucketParams),
+      {
+        expiresIn: 15 * 60,
+      },
+    );
 
-      const url = await getSignedUrl(
-        s3Client,
-        new GetObjectCommand(bucketParams),
-        {
-          expiresIn: 15 * 60,
-        },
-      );
-
-      return NextResponse.json({ channel: url });
-    } else {
-      return NextResponse.json({ error: NOT_MEMBER_ERROR }, { status: 403 });
-    }
+    return NextResponse.json(
+      { channel: url },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error: unknown) {
     logServerError("Error fetching channel", error);
     return NextResponse.json(
       { error: "Failed to fetch data" },
-      { status: 500 },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

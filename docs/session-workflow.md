@@ -67,7 +67,9 @@ foundational pattern, destructive data change, or material expansion of scope.
 - Keep changes within the agreed feature or fix.
 - Treat the candidate's intended parent or merge base as the reviewed baseline,
   using `main` only when it is the intended parent, and use a clearly named
-  feature branch before publishing work.
+  branch before publishing work. Prefix branch names by change type using
+  conventional prefixes such as `feat/`, `fix/`, `docs/`, or `chore/`; do not
+  use an agent or tool name as the branch prefix.
 - Preserve existing and unrelated worktree changes.
 - Keep credentials, signatures, signed URLs, private endpoints, real user data,
   and internal-only notes out of source, tests, logs, screenshots, and

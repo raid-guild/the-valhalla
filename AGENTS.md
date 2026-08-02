@@ -20,23 +20,29 @@ These instructions apply to the entire repository.
   root package. Keep `packages: ["."]` if the file remains present.
 - UI is built with Chakra UI plus RainbowKit, Wagmi, Viem, TanStack Query, and
   React Icons.
-- The main page gates access by connected wallet, Gnosis-chain token balance,
-  and a signed message.
-- API routes under `app/api/` verify the signed message server-side, fetch
-  membership data from an external subgraph, and create S3 signed URLs.
+- The main page gates access with a connected wallet and an EIP-4361 sign-in,
+  then restores a short-lived member session from an HttpOnly cookie.
+- API routes under `app/api/` verify SIWE challenges, retain signed sessions,
+  fetch membership data from the DAOhaus subgraph, and create S3 signed URLs.
 
 ## Repository Map
 
-- `app/page.tsx`: client flow for wallet connection, balance check, message
-  signing, file list fetching, and file link requests.
+- `app/page.tsx`: client flow for wallet connection, SIWE, retained-session
+  restoration, file list fetching, and file link requests.
 - `app/layout.tsx`: global providers, RainbowKit/Wagmi setup, Google font, and
   page frame.
 - `app/api/files/route.ts`: verifies membership and returns available S3
   objects.
 - `app/api/channel/route.ts`: verifies membership and returns a short-lived
   signed URL for one S3 object.
-- `app/api/shared/memberAuth.ts`: shared request validation, message constant,
-  member query, and membership error text.
+- `app/api/auth/`: SIWE challenge, verification, retained-session, and logout
+  route handlers.
+- `app/api/shared/memberAuth.ts`: shared request validation, DAOhaus member
+  query with the 100-share threshold, and session authorization.
+- `app/api/shared/session.ts`: signed challenge/session tokens and secure cookie
+  helpers backed by `JWT_SECRET`.
+- `app/api/shared/authRateLimit.ts`: process-local authentication and RPC
+  throttling, including `429` responses with `Retry-After`.
 - `app/config.ts`: server-side S3 client configuration from environment
   variables.
 - `app/utils/requests.ts`: client request helpers and API error normalization.
@@ -69,6 +75,9 @@ Known environment variable names:
 - `S3_SECRET`
 - `THE_GRAPH_API_KEY`
 - `JWT_SECRET`
+- `GNOSIS_RPC_URL`
+
+`JWT_SECRET` must be a cryptographically random value of at least 32 bytes.
 
 Document variable names when needed, but never document secret values.
 

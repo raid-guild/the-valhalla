@@ -1,15 +1,12 @@
 import axios from "axios";
+import { NextResponse } from "next/server";
 import { CONFIG } from "../../config";
+import { readSessionAddress } from "./session";
 
-export const MEMBER_SIGN_MESSAGE = "gm raidguild member";
 export const NOT_MEMBER_ERROR =
-  "Your wallet address is not a RaidGuild member.";
+  "This wallet does not hold at least 100 RaidGuild shares.";
 
-export type SignatureRequestBody = {
-  signature: string;
-};
-
-export type ChannelRequestBody = SignatureRequestBody & {
+export type ChannelRequestBody = {
   key: string;
 };
 
@@ -25,8 +22,9 @@ const MEMBER_ADDRESSES_PAGE_SIZE = 400;
 const MEMBER_ADDRESSES_MAX_PAGES = 25;
 const MEMBER_ADDRESSES_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMBER_ADDRESSES_REQUEST_TIMEOUT_MS = 10 * 1000;
-const MEMBERS_SUBGRAPH_ID =
-  "6x9FK3iuhVFaH9sZ39m8bKB5eckax8sjxooBPNKWWK8r";
+// DAOhaus indexes the raw 18-decimal ERC-20 balance: 100 shares = 100 * 10^18.
+const MEMBERSHIP_MIN_SHARES = "100000000000000000000";
+const MEMBERS_SUBGRAPH_ID = "6x9FK3iuhVFaH9sZ39m8bKB5eckax8sjxooBPNKWWK8r";
 const URL_PATTERN = /https?:\/\/\S+/g;
 
 let memberAddressesCache:
@@ -35,17 +33,6 @@ let memberAddressesCache:
       expiresAt: number;
     }
   | undefined;
-
-export function isSignatureRequestBody(
-  value: unknown,
-): value is SignatureRequestBody {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const candidate = value as Partial<SignatureRequestBody>;
-  return typeof candidate.signature === "string";
-}
 
 export function isChannelRequestBody(
   value: unknown,
@@ -56,7 +43,6 @@ export function isChannelRequestBody(
 
   const candidate = value as Partial<ChannelRequestBody>;
   return (
-    typeof candidate.signature === "string" &&
     typeof candidate.key === "string" &&
     candidate.key.length > 0 &&
     !candidate.key.endsWith("/")
@@ -76,7 +62,6 @@ export function logServerError(message: string, error: unknown) {
 
   if (error instanceof Error) {
     console.error(message, {
-      message: sanitizeLogMessage(error.message),
       name: error.name,
     });
     return;
@@ -127,8 +112,8 @@ export async function fetchMemberAddresses(): Promise<string[]> {
       memberSubgraphUrl,
       {
         query: `
-          query listMembers($skip: Int!, $first: Int!) {
-            members(where: { dao: "0xf02fd4286917270cb94fbc13a0f4e1ed76f7e986" }, skip: $skip, first: $first, orderBy: createdAt, orderDirection: desc) {
+          query listMembers($skip: Int!, $first: Int!, $minimumShares: BigInt!) {
+            members(where: { dao: "0xf02fd4286917270cb94fbc13a0f4e1ed76f7e986", shares_gte: $minimumShares }, skip: $skip, first: $first, orderBy: createdAt, orderDirection: desc) {
               memberAddress
             }
           }
@@ -137,6 +122,7 @@ export async function fetchMemberAddresses(): Promise<string[]> {
         variables: {
           skip,
           first: MEMBER_ADDRESSES_PAGE_SIZE,
+          minimumShares: MEMBERSHIP_MIN_SHARES,
         },
       },
       {
@@ -169,4 +155,44 @@ export async function fetchMemberAddresses(): Promise<string[]> {
   }
 
   throw new Error("Member lookup exceeded maximum page count");
+}
+
+export async function isEligibleMemberAddress(address: string) {
+  const members = await fetchMemberAddresses();
+  return members.includes(address.toLowerCase());
+}
+
+export class MemberSessionError extends Error {
+  constructor(
+    message: string,
+    readonly status: 401 | 403,
+  ) {
+    super(message);
+    this.name = "MemberSessionError";
+  }
+}
+
+export function memberSessionErrorResponse(error: unknown) {
+  if (!(error instanceof MemberSessionError)) return null;
+
+  return NextResponse.json(
+    { error: error.message },
+    {
+      headers: { "Cache-Control": "no-store" },
+      status: error.status,
+    },
+  );
+}
+
+export async function requireMemberSession() {
+  const address = await readSessionAddress();
+  if (!address) {
+    throw new MemberSessionError("Authentication required.", 401);
+  }
+
+  if (!(await isEligibleMemberAddress(address))) {
+    throw new MemberSessionError(NOT_MEMBER_ERROR, 403);
+  }
+
+  return address;
 }
