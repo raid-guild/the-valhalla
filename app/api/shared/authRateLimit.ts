@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 
 const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const AUTH_RATE_LIMIT_MAX_KEYS = 5_000;
+const CHAT_MAX_CONCURRENT_REQUESTS = 12;
+const CHAT_MAX_CONCURRENT_REQUESTS_PER_MEMBER = 2;
 
 type RateLimitEntry = {
   count: number;
   resetAt: number;
 };
 
-type AuthRateLimitScope = "message" | "rpc" | "session" | "verify";
-type GlobalBudgetScope = "message" | "rpc";
+type AuthRateLimitScope = "chat" | "message" | "rpc" | "session" | "verify";
+type GlobalBudgetScope = "chat" | "message" | "rpc";
 
 // These counters are an intentional process-local first defense: they reset on
 // cold starts and multiply across instances. Horizontally scaled deployments
@@ -19,6 +21,8 @@ const rateLimitEntries = new Map<
   Map<string, RateLimitEntry>
 >();
 const globalBudgets = new Map<GlobalBudgetScope, RateLimitEntry>();
+const activeChatRequestsByMember = new Map<string, number>();
+let activeChatRequests = 0;
 let nextCleanupAt = 0;
 
 function cleanupExpiredEntries(now: number) {
@@ -80,10 +84,7 @@ export function checkAuthRateLimit(
   return { allowed: true, retryAfterSeconds: 0 };
 }
 
-export function checkAuthGlobalBudget(
-  scope: GlobalBudgetScope,
-  limit: number,
-) {
+export function checkAuthGlobalBudget(scope: GlobalBudgetScope, limit: number) {
   const now = Date.now();
   const budget = globalBudgets.get(scope);
 
@@ -98,10 +99,7 @@ export function checkAuthGlobalBudget(
   if (budget.count >= limit) {
     return {
       allowed: false,
-      retryAfterSeconds: Math.max(
-        1,
-        Math.ceil((budget.resetAt - now) / 1000),
-      ),
+      retryAfterSeconds: Math.max(1, Math.ceil((budget.resetAt - now) / 1000)),
     };
   }
 
@@ -114,6 +112,41 @@ export function checkAuthRpcBudget(identity: string) {
   if (!identityBudget.allowed) return identityBudget;
 
   return checkAuthGlobalBudget("rpc", 120);
+}
+
+export function checkChatRateLimit(identity: string) {
+  const identityBudget = checkAuthRateLimit("chat", identity, 12);
+  if (!identityBudget.allowed) return identityBudget;
+
+  return checkAuthGlobalBudget("chat", 240);
+}
+
+export function acquireChatConcurrencySlot(identity: string) {
+  const memberRequestCount = activeChatRequestsByMember.get(identity) ?? 0;
+  if (
+    activeChatRequests >= CHAT_MAX_CONCURRENT_REQUESTS ||
+    memberRequestCount >= CHAT_MAX_CONCURRENT_REQUESTS_PER_MEMBER
+  ) {
+    return null;
+  }
+
+  activeChatRequests += 1;
+  activeChatRequestsByMember.set(identity, memberRequestCount + 1);
+  let released = false;
+
+  return () => {
+    if (released) return;
+    released = true;
+    activeChatRequests = Math.max(0, activeChatRequests - 1);
+
+    const remainingMemberRequests =
+      (activeChatRequestsByMember.get(identity) ?? 1) - 1;
+    if (remainingMemberRequests <= 0) {
+      activeChatRequestsByMember.delete(identity);
+    } else {
+      activeChatRequestsByMember.set(identity, remainingMemberRequests);
+    }
+  };
 }
 
 export function authRateLimitResponse(retryAfterSeconds: number) {

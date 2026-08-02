@@ -3,6 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
 
 import { getS3Bucket, s3Client } from "../../config";
+import { isArchivedHtmlChannel } from "../shared/channelArchive";
 import {
   type ChannelRequestBody,
   isChannelRequestBody,
@@ -52,9 +53,17 @@ export async function POST(req: Request) {
   }
 
   try {
+    if (!(await isArchivedHtmlChannel(requestBody.key, req.signal))) {
+      return NextResponse.json(
+        { error: "This channel is not part of the archived HTML collection." },
+        { status: 404, headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
     const bucketParams = {
       Bucket: getS3Bucket(),
       Key: requestBody.key,
+      ResponseCacheControl: "private, no-store",
     };
 
     const url = await getSignedUrl(
