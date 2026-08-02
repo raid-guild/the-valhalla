@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import {
+  authRateLimitResponse,
+  checkAuthRateLimit,
+} from "../../shared/authRateLimit";
+import {
   isEligibleMemberAddress,
   logServerError,
 } from "../../shared/memberAuth";
@@ -24,6 +28,11 @@ export async function GET() {
   }
 
   try {
+    const rateLimit = checkAuthRateLimit("session", address, 60);
+    if (!rateLimit.allowed) {
+      return authRateLimitResponse(rateLimit.retryAfterSeconds);
+    }
+
     if (!(await isEligibleMemberAddress(address))) {
       const response = NextResponse.json(
         { authenticated: false },
@@ -44,7 +53,7 @@ export async function GET() {
     logServerError("Error restoring wallet session", error);
     return NextResponse.json(
       { error: "Unable to restore your session right now." },
-      { status: 500 },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

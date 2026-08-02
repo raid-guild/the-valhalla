@@ -4,14 +4,35 @@ import { NextResponse } from "next/server";
 
 import { getS3Bucket, s3Client } from "../../config";
 import {
-  MemberSessionError,
   type ChannelRequestBody,
   isChannelRequestBody,
   logServerError,
+  memberSessionErrorResponse,
   requireMemberSession,
 } from "../shared/memberAuth";
+import { getSameOrigin } from "../shared/session";
 
 export async function POST(req: Request) {
+  if (!getSameOrigin(req)) {
+    return NextResponse.json(
+      { error: "Invalid request origin" },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
+  try {
+    await requireMemberSession();
+  } catch (error: unknown) {
+    const sessionErrorResponse = memberSessionErrorResponse(error);
+    if (sessionErrorResponse) return sessionErrorResponse;
+
+    logServerError("Error authorizing channel request", error);
+    return NextResponse.json(
+      { error: "Failed to fetch data" },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   let requestBody: ChannelRequestBody;
 
   try {
@@ -19,17 +40,18 @@ export async function POST(req: Request) {
     if (!isChannelRequestBody(parsed)) {
       return NextResponse.json(
         { error: "Invalid request body" },
-        { status: 400 },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
       );
     }
     requestBody = parsed;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON" },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   try {
-    await requireMemberSession();
-
     const bucketParams = {
       Bucket: getS3Bucket(),
       Key: requestBody.key,
@@ -43,19 +65,15 @@ export async function POST(req: Request) {
       },
     );
 
-    return NextResponse.json({ channel: url });
+    return NextResponse.json(
+      { channel: url },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error: unknown) {
-    if (error instanceof MemberSessionError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status },
-      );
-    }
-
     logServerError("Error fetching channel", error);
     return NextResponse.json(
       { error: "Failed to fetch data" },
-      { status: 500 },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
     );
   }
 }

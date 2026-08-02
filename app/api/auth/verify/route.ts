@@ -15,6 +15,7 @@ import {
 } from "viem/siwe";
 import { gnosis } from "viem/chains";
 
+import { CONFIG } from "../../../config";
 import {
   authRateLimitResponse,
   checkAuthRateLimit,
@@ -23,6 +24,7 @@ import {
 import {
   isEligibleMemberAddress,
   logServerError,
+  NOT_MEMBER_ERROR,
 } from "../../shared/memberAuth";
 import {
   clearChallengeCookie,
@@ -40,7 +42,10 @@ type VerifyRequestBody = {
 
 const gnosisClient = createPublicClient({
   chain: gnosis,
-  transport: http(),
+  transport: http(CONFIG.GNOSIS_RPC_URL?.trim() || undefined, {
+    retryCount: 1,
+    timeout: 5_000,
+  }),
 });
 
 function isVerifyRequestBody(value: unknown): value is VerifyRequestBody {
@@ -148,7 +153,9 @@ export async function POST(request: Request) {
     }
 
     if (!signatureIsValid) {
-      const rpcBudget = checkAuthRpcBudget(120);
+      const rpcBudget = checkAuthRpcBudget(
+        getAddress(parsedMessage.address),
+      );
       if (!rpcBudget.allowed) {
         return authRateLimitResponse(rpcBudget.retryAfterSeconds);
       }
@@ -172,7 +179,7 @@ export async function POST(request: Request) {
 
     if (!(await isEligibleMemberAddress(parsedMessage.address))) {
       return NextResponse.json(
-        { error: "This wallet does not hold at least 100 RaidGuild shares." },
+        { error: NOT_MEMBER_ERROR },
         { status: 403 },
       );
     }

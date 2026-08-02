@@ -1,4 +1,5 @@
 import axios from "axios";
+import { NextResponse } from "next/server";
 import { CONFIG } from "../../config";
 import { readSessionAddress } from "./session";
 
@@ -21,6 +22,7 @@ const MEMBER_ADDRESSES_PAGE_SIZE = 400;
 const MEMBER_ADDRESSES_MAX_PAGES = 25;
 const MEMBER_ADDRESSES_CACHE_TTL_MS = 5 * 60 * 1000;
 const MEMBER_ADDRESSES_REQUEST_TIMEOUT_MS = 10 * 1000;
+// DAOhaus indexes the raw 18-decimal ERC-20 balance: 100 shares = 100 * 10^18.
 const MEMBERSHIP_MIN_SHARES = "100000000000000000000";
 const MEMBERS_SUBGRAPH_ID = "6x9FK3iuhVFaH9sZ39m8bKB5eckax8sjxooBPNKWWK8r";
 const URL_PATTERN = /https?:\/\/\S+/g;
@@ -60,7 +62,6 @@ export function logServerError(message: string, error: unknown) {
 
   if (error instanceof Error) {
     console.error(message, {
-      message: sanitizeLogMessage(error.message),
       name: error.name,
     });
     return;
@@ -169,6 +170,18 @@ export class MemberSessionError extends Error {
     super(message);
     this.name = "MemberSessionError";
   }
+}
+
+export function memberSessionErrorResponse(error: unknown) {
+  if (!(error instanceof MemberSessionError)) return null;
+
+  return NextResponse.json(
+    { error: error.message },
+    {
+      headers: { "Cache-Control": "no-store" },
+      status: error.status,
+    },
+  );
 }
 
 export async function requireMemberSession() {

@@ -1,6 +1,7 @@
 import { S3 } from "@aws-sdk/client-s3";
 
 export const CONFIG = {
+  GNOSIS_RPC_URL: process.env.GNOSIS_RPC_URL,
   JWT_SECRET: process.env.JWT_SECRET,
   THE_GRAPH_API_KEY: process.env.THE_GRAPH_API_KEY,
 };

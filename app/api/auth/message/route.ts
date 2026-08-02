@@ -5,6 +5,7 @@ import { gnosis } from "viem/chains";
 
 import {
   authRateLimitResponse,
+  checkAuthGlobalBudget,
   checkAuthRateLimit,
 } from "../../shared/authRateLimit";
 import {
@@ -60,16 +61,22 @@ export async function POST(request: Request) {
     return authRateLimitResponse(rateLimit.retryAfterSeconds);
   }
 
+  const globalLimit = checkAuthGlobalBudget("message", 300);
+  if (!globalLimit.allowed) {
+    return authRateLimitResponse(globalLimit.retryAfterSeconds);
+  }
+
   const nonce = generateSiweNonce();
   const now = new Date();
+  const originUrl = new URL(origin);
   const message = createSiweMessage({
     address,
     chainId: gnosis.id,
-    domain: new URL(origin).host,
+    domain: originUrl.host,
     expirationTime: new Date(now.getTime() + 5 * 60 * 1000),
     issuedAt: now,
     nonce,
-    scheme: new URL(origin).protocol.slice(0, -1),
+    scheme: originUrl.protocol.slice(0, -1),
     statement: "Sign in to the RaidGuild Guild Archive.",
     uri: origin,
     version: "1",

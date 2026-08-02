@@ -82,7 +82,7 @@ export const getValhallaFiles = async () => {
 
 export const getValhallaFile = async (key: string) => {
   try {
-    const data = await axios.post("/api/channel", {
+    const data = await axios.post<{ channel: string }>("/api/channel", {
       key,
     });
     return data.data.channel;

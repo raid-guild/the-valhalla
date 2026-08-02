@@ -41,6 +41,8 @@ These instructions apply to the entire repository.
   query with the 100-share threshold, and session authorization.
 - `app/api/shared/session.ts`: signed challenge/session tokens and secure cookie
   helpers backed by `JWT_SECRET`.
+- `app/api/shared/authRateLimit.ts`: process-local authentication and RPC
+  throttling, including `429` responses with `Retry-After`.
 - `app/config.ts`: server-side S3 client configuration from environment
   variables.
 - `app/utils/requests.ts`: client request helpers and API error normalization.
@@ -73,6 +75,7 @@ Known environment variable names:
 - `S3_SECRET`
 - `THE_GRAPH_API_KEY`
 - `JWT_SECRET`
+- `GNOSIS_RPC_URL`
 
 `JWT_SECRET` must be a cryptographically random value of at least 32 bytes.
 

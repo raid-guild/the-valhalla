@@ -5,10 +5,11 @@ import {
 import { NextResponse } from "next/server";
 import { getS3Bucket, s3Client } from "../../config";
 import {
-  MemberSessionError,
   logServerError,
+  memberSessionErrorResponse,
   requireMemberSession,
 } from "../shared/memberAuth";
+import { getSameOrigin } from "../shared/session";
 
 const S3_LIST_PAGE_SIZE = 500;
 const S3_LIST_MAX_PAGES = 10;
@@ -35,7 +36,14 @@ function addValhallaFiles(
   }
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (!getSameOrigin(request)) {
+    return NextResponse.json(
+      { error: "Invalid request origin" },
+      { status: 403, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   try {
     await requireMemberSession();
 
@@ -62,16 +70,18 @@ export async function POST() {
       continuationToken = data.NextContinuationToken;
     } while (continuationToken);
 
-    return NextResponse.json({ response: files });
+    return NextResponse.json(
+      { response: files },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error: unknown) {
-    if (error instanceof MemberSessionError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.status },
-      );
-    }
+    const sessionErrorResponse = memberSessionErrorResponse(error);
+    if (sessionErrorResponse) return sessionErrorResponse;
 
     logServerError("Error fetching files", error);
-    return NextResponse.json({ error: "An error occurred." }, { status: 500 });
+    return NextResponse.json(
+      { error: "An error occurred." },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }

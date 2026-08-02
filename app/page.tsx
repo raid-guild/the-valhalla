@@ -36,6 +36,85 @@ import {
 const AUTH_SESSION_QUERY_KEY = ["valhalla-session"] as const;
 
 type AuthPhase = "idle" | "preparing" | "awaiting-signature" | "verifying";
+type AccessState =
+  | "archive"
+  | "archive-error"
+  | "archive-loading"
+  | "check-in"
+  | "idle"
+  | "loading"
+  | "logout-error"
+  | "network-error"
+  | "session-error"
+  | "signing-out";
+
+type AccessStateInput = {
+  address?: Address;
+  chainId?: number;
+  filesError: unknown;
+  hasVerifiedAccess: boolean;
+  isConnecting: boolean;
+  isEndingSession: boolean;
+  isFilesLoading: boolean;
+  isSessionLoading: boolean;
+  logoutError: string;
+  sessionError: unknown;
+};
+
+function resolveAccessState(input: AccessStateInput): AccessState {
+  if (input.hasVerifiedAccess) {
+    if (input.isFilesLoading) return "archive-loading";
+    return input.filesError ? "archive-error" : "archive";
+  }
+  if (input.isEndingSession) return "signing-out";
+  if (input.logoutError) return "logout-error";
+  if (input.isSessionLoading || input.isConnecting) return "loading";
+  if (input.sessionError) return "session-error";
+  if (!input.address) return "idle";
+  if (input.chainId !== gnosis.id) return "network-error";
+  return "check-in";
+}
+
+function checkInAnnouncement(authPhase: AuthPhase) {
+  switch (authPhase) {
+    case "awaiting-signature":
+      return "Check your wallet to sign the Valhalla sign-in message.";
+    case "verifying":
+      return "Verifying your RaidGuild membership.";
+    case "preparing":
+      return "Preparing your Valhalla sign-in message.";
+    default:
+      return "Sign a message to verify your membership and start a session.";
+  }
+}
+
+type StatusAnnouncementContext = {
+  authPhase: AuthPhase;
+  isConnecting: boolean;
+  visibleFilesCount: number;
+};
+
+const STATUS_ANNOUNCEMENTS: Record<
+  AccessState,
+  (context: StatusAnnouncementContext) => string
+> = {
+  "archive-error": () => "The archive did not open. Try again.",
+  "archive-loading": () => "Opening the archive.",
+  "check-in": ({ authPhase }) => checkInAnnouncement(authPhase),
+  "logout-error": () => "We could not finish signing you out.",
+  "network-error": () => "Switch to Gnosis Chain to continue.",
+  "session-error": () => "We could not restore your member session.",
+  "signing-out": () => "Signing you out of Valhalla.",
+  archive: ({ visibleFilesCount }) =>
+    `Guild archive open with ${visibleFilesCount} ${
+      visibleFilesCount === 1 ? "file" : "files"
+    } available.`,
+  idle: () => "",
+  loading: ({ isConnecting }) =>
+    isConnecting
+      ? "Connecting your wallet."
+      : "Checking for an existing member session.",
+};
 
 type GatePanelProps = {
   description: string;
@@ -301,55 +380,23 @@ function HomeContent() {
       .map(({ file }) => file);
   }, [searchQuery, visibleFiles]);
   const errorMessage = actionError || fileError?.message;
-  const accessState = hasVerifiedAccess
-    ? isFilesLoading
-      ? "archive-loading"
-      : filesError
-        ? "archive-error"
-        : "archive"
-    : isEndingSession
-      ? "signing-out"
-      : logoutError
-        ? "logout-error"
-        : isSessionLoading || isConnecting
-          ? "loading"
-          : sessionError
-            ? "session-error"
-            : !address
-              ? "idle"
-              : chainId !== gnosis.id
-                ? "network-error"
-                : "check-in";
-  const statusAnnouncement =
-    accessState === "signing-out"
-      ? "Signing you out of Valhalla."
-      : accessState === "logout-error"
-        ? "We could not finish signing you out."
-        : accessState === "loading"
-          ? isConnecting
-            ? "Connecting your wallet."
-            : "Checking for an existing member session."
-          : accessState === "archive-loading"
-            ? "Opening the archive."
-            : accessState === "session-error"
-              ? "We could not restore your member session."
-              : accessState === "network-error"
-                ? "Switch to Gnosis Chain to continue."
-                : accessState === "check-in"
-                  ? authPhase === "awaiting-signature"
-                    ? "Check your wallet to sign the Valhalla sign-in message."
-                    : authPhase === "verifying"
-                      ? "Verifying your RaidGuild membership."
-                      : authPhase === "preparing"
-                        ? "Preparing your Valhalla sign-in message."
-                        : "Sign a message to verify your membership and start a session."
-                  : accessState === "archive-error"
-                    ? "The archive did not open. Try again."
-                    : accessState === "archive"
-                      ? `Guild archive open with ${visibleFiles.length} ${
-                          visibleFiles.length === 1 ? "file" : "files"
-                        } available.`
-                      : "";
+  const accessState = resolveAccessState({
+    address,
+    chainId,
+    filesError,
+    hasVerifiedAccess,
+    isConnecting,
+    isEndingSession,
+    isFilesLoading,
+    isSessionLoading,
+    logoutError,
+    sessionError,
+  });
+  const statusAnnouncement = STATUS_ANNOUNCEMENTS[accessState]({
+    authPhase,
+    isConnecting,
+    visibleFilesCount: visibleFiles.length,
+  });
 
   useEffect(() => {
     const protectedAccessError = [filesError, fileError].find(
@@ -368,6 +415,8 @@ function HomeContent() {
     resetSignature();
     resetAuthentication();
     resetFileRequest();
+    // The reset helpers clear related errors, so restore this message after
+    // their state updates have settled.
     queueMicrotask(() => {
       setAuthPhase("idle");
       setActionError(protectedAccessError.message);
