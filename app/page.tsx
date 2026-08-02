@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -10,7 +11,13 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { LuExternalLink, LuFileText, LuSearch, LuX } from "react-icons/lu";
+import {
+  LuExternalLink,
+  LuFileText,
+  LuMessageCircle,
+  LuSearch,
+  LuX,
+} from "react-icons/lu";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAccount, useSignMessage } from "wagmi";
 import type { Address } from "viem";
@@ -784,9 +791,9 @@ function HomeContent() {
             const isOpening = channelsBeingFetched.has(key);
 
             return (
-              <li key={key}>
+              <li className="file-card" key={key} title={key}>
                 <button
-                  className="file-card"
+                  className="file-card-open"
                   type="button"
                   disabled={isOpening}
                   aria-busy={isOpening || undefined}
@@ -812,6 +819,16 @@ function HomeContent() {
                     aria-hidden="true"
                   />
                 </button>
+                {key.toLowerCase().endsWith(".html") ? (
+                  <Link
+                    className="file-card-ask"
+                    href={`/channel?key=${encodeURIComponent(key)}`}
+                    aria-label={`Ask questions about ${key}`}
+                  >
+                    <LuMessageCircle aria-hidden="true" />
+                    <span>Ask</span>
+                  </Link>
+                ) : null}
               </li>
             );
           })}
