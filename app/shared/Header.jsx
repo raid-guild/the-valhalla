@@ -1,23 +1,35 @@
 "use client";
 
-import { Flex, Image as ChakraImage } from "@chakra-ui/react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
+import Image from "next/image";
+import Link from "next/link";
 
-import { useAccount } from "wagmi";
+import { WalletControl } from "./WalletControl";
 
 export const Header = () => {
-  const { address } = useAccount();
-
   return (
-    <Flex
-      h="100px"
-      w="100%"
-      alignItems="center"
-      justifyContent="space-between"
-      px="2rem"
-    >
-      <ChakraImage src="/raidguild.webp" alt="RaidGuild Valhalla" w="100px" />
-      {address && <ConnectButton />}
-    </Flex>
+    <header className="site-header">
+      <Link className="brand-home-link" href="/" aria-label="The Valhalla home">
+        <Image
+          className="brand-logo-full"
+          src="/brand/full-m800.svg"
+          alt="RaidGuild"
+          width={168}
+          height={44}
+          priority
+          unoptimized
+        />
+        <Image
+          className="brand-logo-symbol"
+          src="/brand/symbol-m500.svg"
+          alt="RaidGuild"
+          width={40}
+          height={38}
+          priority
+          unoptimized
+        />
+        <span className="brand-context">The Valhalla</span>
+      </Link>
+      <WalletControl />
+    </header>
   );
 };

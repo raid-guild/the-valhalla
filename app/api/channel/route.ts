@@ -3,7 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { verifyMessage } from "ethers";
 import { NextResponse } from "next/server";
 
-import { s3Client } from "../../config";
+import { getS3Bucket, s3Client } from "../../config";
 import {
   MEMBER_SIGN_MESSAGE,
   NOT_MEMBER_ERROR,
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
 
     if (members.includes(address.toLowerCase())) {
       const bucketParams = {
-        Bucket: "raid-guild-valhalla",
+        Bucket: getS3Bucket(),
         Key: requestBody.key,
       };
 

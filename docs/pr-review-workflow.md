@@ -1,70 +1,78 @@
-# Pull Request Review Workflow
+# PR Review Comment Workflow
 
-Use this workflow when inspecting or addressing GitHub pull-request feedback.
+Use this workflow when an agent is asked to handle GitHub PR review feedback.
 
-## Safety And Authority
+## Safety
 
-- Never expose credentials, private data, production records, local machine
-  paths, or infrastructure details in chat, logs, commits, tests, or GitHub
-  replies.
-- Prefer repository-scoped credentials with the minimum required permissions.
-- Keep authentication in approved local tooling, environment variables, or
-  ignored files.
-- Do not stage, commit, push, post GitHub comments, dismiss reviews, or resolve
+- Do not paste tokens, secrets, private data, or real user data into chat, logs,
+  commits, tests, or GitHub replies.
+- Prefer repository-scoped credentials with the minimum permissions needed.
+- Use the connected GitHub app and repository-scoped credentials as directed by
+  `AGENTS.md`; keep credentials in approved environment variables or ignored
+  local files.
+- Do not stage, commit, push, comment, dismiss reviews, or resolve GitHub
   threads without explicit user approval.
 
 ## Flow
 
-1. Fetch all unresolved review threads.
+1. Fetch all unresolved review threads first.
    - Preserve thread IDs, file paths, line anchors, resolution state, and
-     outdated state.
-   - Do not rely only on flat comment lists when thread state matters.
+     whether comments are outdated.
+   - Avoid relying only on flat comment lists when thread state matters.
 
 2. Summarize the review map before editing.
    - List each actionable thread.
-   - Explain what it claims, whether it appears accurate, and the intended
-     response.
-   - Separate duplicates, outdated comments, informational notes, and ambiguous
-     requests from actionable findings.
+   - For each thread, state what it claims, whether it appears accurate, and
+     the intended action.
+   - Separate duplicate, outdated, informational, or ambiguous comments from
+     actionable ones.
 
-3. Validate each finding against the code and approved scope.
-   - Inspect the relevant implementation and surrounding behavior.
+3. Validate each comment against the code.
+   - Inspect the relevant code and surrounding behavior.
    - Do not assume the reviewer is correct.
-   - If a finding is inaccurate, preserve the evidence needed for a concise
-     reply.
+   - If the comment is inaccurate, record the reason for the eventual reply.
 
-4. Fix approved findings locally.
-   - Keep each change traceable to its review thread.
-   - Prefer cohesive fixes and verification over one commit per comment.
-   - Pause when feedback conflicts with product intent, another comment, the
-     approved scope, or a safety boundary.
+4. Fix valid comments locally.
+   - Keep changes traceable to the review thread.
+   - Prefer cohesive local fixes over one commit or push per comment.
+   - If a comment conflicts with product intent or another comment, pause and
+     explain the tradeoff.
 
-5. Verify the selected fixes.
-   - Run focused checks for narrow changes.
+5. Verify after the selected fixes.
+   - Run the smallest useful tests for narrow changes.
    - Run broader checks for shared behavior, wallet authentication, membership
-     authorization, S3 access, external APIs, or user flows.
-   - Record exactly which checks passed and which could not run.
+     authorization, S3 access, signed URLs, external APIs, or UI flow.
+   - Record exactly which checks passed or could not be run.
 
-6. Report local results before publication.
+6. For PR-sized fixes, complete the independent-review gate from
+   `docs/session-workflow.md` after automated verification and before staging
+   or describing the changes as ready to merge.
+
+7. Summarize local results to the user.
    - List fixed threads.
-   - List intentionally unchanged or partially addressed threads with reasons.
-   - List changed files and verification evidence.
-   - Ask before staging, committing, pushing, or replying on GitHub.
+   - List intentionally unchanged threads and why.
+   - List files changed and verification commands.
+   - Ask before staging, committing, pushing, or posting GitHub replies.
 
-7. Reply only after approval and publication.
-   - When code changed, reply after the fix is pushed.
-   - Include the commit SHA when available.
-   - State what changed and what verification supports it, or why no change was
-     made.
-   - Leave resolution to the user unless they explicitly delegate it.
+8. Reply to GitHub threads only after approval.
+   - Reply after code is pushed when a code fix was made.
+   - Include the commit SHA or short SHA that contains the fix when one is
+     available.
+   - Keep replies concise and specific: what changed, what check supports it,
+     or why it was left unchanged.
+   - Leave thread resolution to the user unless they explicitly ask the agent
+     to resolve threads.
 
 ## Reply Style
 
-Good replies are brief and evidenced:
+Good replies:
 
 - `Addressed in abc1234 by validating the request body before creating a signed URL. Verified with pnpm lint and pnpm build.`
-- `Leaving this unchanged because the approved behavior requires the current membership gate; the route still verifies the signed message server-side.`
-- `Partially addressed: the UI now prevents the invalid action, while the server guard remains the source of truth.`
+- `Leaving this unchanged: the route intentionally verifies membership server-side because the wallet UI check is not an authorization boundary.`
+- `Partially addressed: the UI now blocks the invalid action, while the API route retains the server-side guard.`
 
-Avoid vague replies such as `Fixed`, unnecessary implementation narration,
-sensitive values, and resolving threads without permission.
+Avoid:
+
+- exposing secrets, wallet signatures, signed URLs, or private user data;
+- vague replies like `Fixed`;
+- resolving threads without the user's permission.
