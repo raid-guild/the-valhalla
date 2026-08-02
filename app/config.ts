@@ -5,6 +5,16 @@ export const CONFIG = {
   THE_GRAPH_API_KEY: process.env.THE_GRAPH_API_KEY,
 };
 
+export function getS3Bucket() {
+  const bucket = process.env.S3_BUCKET?.trim();
+
+  if (!bucket) {
+    throw new Error("S3_BUCKET is not configured.");
+  }
+
+  return bucket;
+}
+
 const hasS3Key = Boolean(process.env.S3_KEY);
 const hasS3Secret = Boolean(process.env.S3_SECRET);
 

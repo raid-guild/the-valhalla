@@ -4,7 +4,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { verifyMessage } from "ethers";
 import { NextResponse } from "next/server";
-import { s3Client } from "../../config";
+import { getS3Bucket, s3Client } from "../../config";
 import {
   MEMBER_SIGN_MESSAGE,
   NOT_MEMBER_ERROR,
@@ -14,7 +14,6 @@ import {
   logServerError,
 } from "../shared/memberAuth";
 
-const bucketParams = { Bucket: "raid-guild-valhalla" };
 const S3_LIST_PAGE_SIZE = 500;
 const S3_LIST_MAX_PAGES = 10;
 const S3_LIST_MAX_FILES = S3_LIST_PAGE_SIZE * S3_LIST_MAX_PAGES;
@@ -69,6 +68,7 @@ export async function POST(req: Request) {
     const members = await fetchMemberAddresses();
 
     if (members.includes(address.toLowerCase())) {
+      const bucketParams = { Bucket: getS3Bucket() };
       const files: ValhallaFile[] = [];
       let continuationToken: string | undefined;
       let pagesFetched = 0;

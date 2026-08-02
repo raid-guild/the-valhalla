@@ -61,6 +61,8 @@ These instructions apply to the entire repository.
 Known environment variable names:
 
 - `NEXT_PUBLIC_PROJECT_ID`
+- `DEV_ALLOWED_ORIGINS`
+- `S3_BUCKET`
 - `S3_ENDPOINT`
 - `S3_REGION`
 - `S3_KEY`
