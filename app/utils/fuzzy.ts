@@ -1,8 +1,8 @@
 const WORD_SEPARATORS = new Set([" ", "-", "_", "/", "."]);
 
 export function fuzzyScore(query: string, candidate: string) {
-  const needle = query.trim().toLocaleLowerCase();
-  const haystack = candidate.toLocaleLowerCase();
+  const needle = query.trim().toLowerCase();
+  const haystack = candidate.toLowerCase();
 
   if (!needle) return 0;
 
@@ -13,7 +13,7 @@ export function fuzzyScore(query: string, candidate: string) {
 
   let score = 0;
   let searchFrom = 0;
-  let previousMatch = -2;
+  let previousMatchEnd = -1;
 
   for (const character of needle) {
     const matchIndex = haystack.indexOf(character, searchFrom);
@@ -28,14 +28,14 @@ export function fuzzyScore(query: string, candidate: string) {
       score += 8;
     }
 
-    if (matchIndex === previousMatch + 1) {
+    if (matchIndex === previousMatchEnd) {
       score += 12;
-    } else if (previousMatch >= 0) {
-      score -= Math.min(matchIndex - previousMatch - 1, 8);
+    } else if (previousMatchEnd >= 0) {
+      score -= Math.min(matchIndex - previousMatchEnd, 8);
     }
 
-    previousMatch = matchIndex;
-    searchFrom = matchIndex + 1;
+    previousMatchEnd = matchIndex + character.length;
+    searchFrom = previousMatchEnd;
   }
 
   return score - haystack.length * 0.01;

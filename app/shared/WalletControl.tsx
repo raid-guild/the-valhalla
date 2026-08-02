@@ -37,6 +37,7 @@ function WalletButton({
     variant === "header"
       ? "rg-button rg-button--secondary rg-button--header"
       : "rg-button rg-button--primary";
+  const accountLabel = accountDisplayName || "Connected wallet";
 
   useEffect(() => {
     if (!ready || !connectRequested) return;
@@ -78,9 +79,9 @@ function WalletButton({
           className={buttonClass}
           type="button"
           onClick={openAccountModal}
-          aria-label={`Wallet ${accountDisplayName}. Open account menu.`}
+          aria-label={`Wallet ${accountLabel}. Open account menu.`}
         >
-          {accountDisplayName}
+          {accountLabel}
         </button>
       )}
     </div>

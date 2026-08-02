@@ -172,6 +172,7 @@ function HomeContent() {
     data: files = [],
     error: filesError,
     isFetching: isFilesFetching,
+    isLoading: isFilesLoading,
     refetch: refetchFiles,
   } = useQuery<ValhallaFile[], Error>({
     queryKey: ["valhalla-files", signatureData],
@@ -241,7 +242,7 @@ function HomeContent() {
   }, [searchQuery, visibleFiles]);
   const errorMessage = actionError || fileError?.message;
   const isCheckingAccess =
-    isConnecting || isSharesLoading || isSharesFetching || isFilesFetching;
+    isConnecting || isSharesLoading || isSharesFetching || isFilesLoading;
   const accessState = isCheckingAccess
     ? "loading"
     : !address
@@ -252,12 +253,14 @@ function HomeContent() {
           ? "not-member"
           : isMember && !isSignSuccess
             ? "check-in"
-            : filesError
-              ? "archive-error"
-              : "archive";
+            : !isSignSuccess
+              ? "verification-error"
+              : filesError
+                ? "archive-error"
+                : "archive";
   const statusAnnouncement =
     accessState === "loading"
-      ? isFilesFetching
+      ? isFilesLoading
         ? "Opening the archive."
         : "Reading your guild shares."
       : accessState === "membership-error"
@@ -266,13 +269,15 @@ function HomeContent() {
           ? "This wallet is not recognized as a RaidGuild member."
           : accessState === "check-in"
             ? "Membership confirmed. Sign a free message to open the archive."
-            : accessState === "archive-error"
-              ? "The archive did not open. Try again."
-              : accessState === "archive"
-                ? `Guild archive open with ${visibleFiles.length} ${
-                    visibleFiles.length === 1 ? "file" : "files"
-                  } available.`
-                : "";
+            : accessState === "verification-error"
+              ? "We could not confirm your membership."
+              : accessState === "archive-error"
+                ? "The archive did not open. Try again."
+                : accessState === "archive"
+                  ? `Guild archive open with ${visibleFiles.length} ${
+                      visibleFiles.length === 1 ? "file" : "files"
+                    } available.`
+                  : "";
 
   useEffect(() => {
     const handleWalletConnectRequest = () => {
@@ -349,12 +354,10 @@ function HomeContent() {
       <div className="access-region">
         <GatePanel
           title={
-            isFilesFetching
-              ? "Opening the archive"
-              : "Reading your guild shares"
+            isFilesLoading ? "Opening the archive" : "Reading your guild shares"
           }
           description={
-            isFilesFetching
+            isFilesLoading
               ? "Your membership is confirmed. We’re gathering the files behind the gate."
               : "We’re checking this wallet’s RaidGuild membership."
           }
@@ -429,6 +432,19 @@ function HomeContent() {
             {isSigning ? "Awaiting signature" : "Check in to Valhalla"}
           </button>
         </GatePanel>
+      </div>,
+    );
+  }
+
+  if (!isSignSuccess) {
+    return renderWithStatus(
+      <div className="access-region">
+        <GatePanel
+          title="We couldn’t confirm your membership"
+          description="Reconnect your wallet or try again."
+          headingRef={focusTargetRef}
+          tone="error"
+        />
       </div>,
     );
   }
@@ -508,12 +524,13 @@ function HomeContent() {
           <button
             className="rg-button rg-button--secondary"
             type="button"
+            disabled={isFilesFetching}
             onClick={() => {
               focusAfterTransitionRef.current = true;
               void refetchFiles();
             }}
           >
-            Try again
+            {isFilesFetching ? "Trying again" : "Try again"}
           </button>
         </div>
       ) : filteredFiles.length > 0 ? (

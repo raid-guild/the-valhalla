@@ -9,7 +9,8 @@ editing, and keep each change bounded by an agreed outcome.
 Use these sources in order:
 
 1. The user's current request, acceptance criteria, and explicit decisions.
-2. The reviewed `main` branch as the implementation baseline.
+2. The candidate's intended parent or merge base as the implementation
+   baseline; use `main` only when it is the intended parent.
 3. The current repository code, `README.md`, and durable documents in `docs/`.
 4. Reviewed local changes in the active worktree.
 
@@ -64,8 +65,9 @@ foundational pattern, destructive data change, or material expansion of scope.
 ## Implementation Rules
 
 - Keep changes within the agreed feature or fix.
-- Treat `main` as the reviewed baseline and use a clearly named feature branch
-  before publishing work.
+- Treat the candidate's intended parent or merge base as the reviewed baseline,
+  using `main` only when it is the intended parent, and use a clearly named
+  feature branch before publishing work.
 - Preserve existing and unrelated worktree changes.
 - Keep credentials, signatures, signed URLs, private endpoints, real user data,
   and internal-only notes out of source, tests, logs, screenshots, and
@@ -170,7 +172,8 @@ Useful Valhalla review specialties include:
 1. Finish implementation and run the agreed checks.
 2. Freeze implementation edits while reviewers inspect the work.
 3. Give reviewers the approved goal, acceptance criteria, non-goals, relevant
-   repository guidance, and the complete diff from the intended baseline.
+   repository guidance, and the complete diff from the same intended-parent or
+   merge-base baseline used for implementation.
 4. Keep reviewers read-only. They report findings but do not edit files,
    create commits, broaden scope, or publish anything.
 5. Require evidence-based findings with severity, file and line references,

@@ -44,13 +44,17 @@ Use this workflow when an agent is asked to handle GitHub PR review feedback.
      authorization, S3 access, signed URLs, external APIs, or UI flow.
    - Record exactly which checks passed or could not be run.
 
-6. Summarize local results to the user.
+6. For PR-sized fixes, complete the independent-review gate from
+   `docs/session-workflow.md` after automated verification and before staging
+   or describing the changes as ready to merge.
+
+7. Summarize local results to the user.
    - List fixed threads.
    - List intentionally unchanged threads and why.
    - List files changed and verification commands.
    - Ask before staging, committing, pushing, or posting GitHub replies.
 
-7. Reply to GitHub threads only after approval.
+8. Reply to GitHub threads only after approval.
    - Reply after code is pushed when a code fix was made.
    - Include the commit SHA or short SHA that contains the fix when one is
      available.
