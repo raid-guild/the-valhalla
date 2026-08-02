@@ -1,16 +1,14 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { verifyMessage } from "ethers";
 import { NextResponse } from "next/server";
 
 import { getS3Bucket, s3Client } from "../../config";
 import {
-  MEMBER_SIGN_MESSAGE,
-  NOT_MEMBER_ERROR,
+  MemberSessionError,
   type ChannelRequestBody,
-  fetchMemberAddresses,
   isChannelRequestBody,
   logServerError,
+  requireMemberSession,
 } from "../shared/memberAuth";
 
 export async function POST(req: Request) {
@@ -29,36 +27,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  let address: string;
-
   try {
-    address = verifyMessage(MEMBER_SIGN_MESSAGE, requestBody.signature);
-  } catch {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-  }
+    await requireMemberSession();
 
-  try {
-    const members = await fetchMemberAddresses();
+    const bucketParams = {
+      Bucket: getS3Bucket(),
+      Key: requestBody.key,
+    };
 
-    if (members.includes(address.toLowerCase())) {
-      const bucketParams = {
-        Bucket: getS3Bucket(),
-        Key: requestBody.key,
-      };
+    const url = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand(bucketParams),
+      {
+        expiresIn: 15 * 60,
+      },
+    );
 
-      const url = await getSignedUrl(
-        s3Client,
-        new GetObjectCommand(bucketParams),
-        {
-          expiresIn: 15 * 60,
-        },
-      );
-
-      return NextResponse.json({ channel: url });
-    } else {
-      return NextResponse.json({ error: NOT_MEMBER_ERROR }, { status: 403 });
-    }
+    return NextResponse.json({ channel: url });
   } catch (error: unknown) {
+    if (error instanceof MemberSessionError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
     logServerError("Error fetching channel", error);
     return NextResponse.json(
       { error: "Failed to fetch data" },

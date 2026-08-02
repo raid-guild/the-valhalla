@@ -253,6 +253,11 @@ a:focus-visible {
   padding-block: clamp(2rem, 4vw, 4rem);
 }
 
+.valhalla-main:has(.archive) {
+  justify-content: flex-start;
+  padding-top: clamp(1.25rem, 2vw, 2rem);
+}
+
 .hero {
   display: grid;
   align-items: center;
@@ -311,11 +316,23 @@ a:focus-visible {
 }
 
 .hero-action {
+  display: inline-flex;
+}
+
+.hero-access {
+  position: relative;
+  z-index: 2;
   margin-top: 2rem;
 }
 
-.hero-step {
-  margin-bottom: 0.75rem;
+.hero-access .gate-card {
+  align-items: start;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+}
+
+.hero-access .gate-action {
+  justify-content: flex-start;
 }
 
 .hero-art {
@@ -371,12 +388,6 @@ a:focus-visible {
   -webkit-mask-composite: source-in;
 }
 
-.access-region {
-  position: relative;
-  z-index: 2;
-  margin-top: clamp(2rem, 5vw, 4rem);
-}
-
 .gate-card {
   display: grid;
   align-items: center;
@@ -401,10 +412,6 @@ a:focus-visible {
 
 .gate-copy {
   max-width: 43rem;
-}
-
-.gate-eyebrow {
-  margin-bottom: 0.65rem;
 }
 
 .gate-title {
@@ -474,7 +481,7 @@ a:focus-visible {
 }
 
 .archive {
-  margin-top: clamp(3rem, 7vw, 6rem);
+  width: 100%;
 }
 
 .archive-header {
@@ -815,7 +822,7 @@ a:focus-visible {
     margin-top: 1.5rem;
   }
 
-  .hero-action {
+  .hero-access {
     margin-top: 1.5rem;
   }
 
@@ -825,10 +832,6 @@ a:focus-visible {
 
   .hero--connected .hero-art {
     display: none;
-  }
-
-  .access-region {
-    margin-top: 2rem;
   }
 
   .gate-card {
