@@ -73,13 +73,15 @@ export function parseChannelTranscript(html: string): ChannelTranscript {
     if (!content) return;
 
     const rawId = message.attr("data-message-id") ?? "";
-    const id = /^\d{1,128}$/.test(rawId) ? rawId : String(index + 1);
-    const timestamp = findTimestamp(
-      message
-        .find("[title]")
-        .toArray()
-        .map((node) => $(node).attr("title")),
-    );
+    const id = /^\d{1,128}$/.test(rawId) ? rawId : `x${index + 1}`;
+    const timestampElement = message
+      .find(".chatlog__timestamp, .chatlog__short-timestamp")
+      .first();
+    const timestamp = findTimestamp([
+      timestampElement.attr("title"),
+      timestampElement.attr("data-timestamp"),
+      normalizeInlineText(timestampElement.text()),
+    ]);
     const label = [
       `M:${id}`,
       timestamp ? `time:${timestamp}` : undefined,

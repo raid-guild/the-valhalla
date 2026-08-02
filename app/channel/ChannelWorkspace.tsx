@@ -160,8 +160,8 @@ function CitedMessageText({
 }) {
   const validCitationIds = getValidCitationIds(message.metadata);
 
-  return text.split(/(\[M:\d+\])/g).map((part, index) => {
-    const match = /^\[M:(\d+)\]$/.exec(part);
+  return text.split(/(\[M:(?:\d+|x\d+)\])/g).map((part, index) => {
+    const match = /^\[M:(\d+|x\d+)\]$/.exec(part);
     if (!match) return part;
 
     const isValid = validCitationIds.has(match[1]);
@@ -284,6 +284,7 @@ export function ChannelWorkspace({ channelKey }: { channelKey: string }) {
   useEffect(() => {
     if (isSessionLoading || hasVerifiedAccess) return;
 
+    void stop();
     const resetChat = window.setTimeout(() => {
       setActiveSettings(null);
       setApiKey("");
@@ -292,7 +293,14 @@ export function ChannelWorkspace({ channelKey }: { channelKey: string }) {
     }, 0);
 
     return () => window.clearTimeout(resetChat);
-  }, [hasVerifiedAccess, isSessionLoading, setMessages]);
+  }, [hasVerifiedAccess, isSessionLoading, setMessages, stop]);
+
+  useEffect(
+    () => () => {
+      void stop();
+    },
+    [stop],
+  );
 
   const sendQuestion = (question: string) => {
     const trimmedQuestion = question.trim();
@@ -482,8 +490,7 @@ export function ChannelWorkspace({ channelKey }: { channelKey: string }) {
                 Your key stays in this tab’s memory. Valhalla sends it only to
                 its server for your selected provider requests and does not
                 store the key or conversation. Each question sends this channel
-                and up to your 12 most recent questions and answers to that
-                provider.
+                and a limited amount of recent chat history to that provider.
               </p>
 
               <div className="chat-field-grid">
@@ -598,6 +605,7 @@ export function ChannelWorkspace({ channelKey }: { channelKey: string }) {
                 ref={chatMessagesRef}
                 role="log"
                 aria-live="polite"
+                aria-busy={chatIsBusy}
                 onScroll={(event) => {
                   const viewport = event.currentTarget;
                   const isNearBottom =
@@ -661,11 +669,7 @@ export function ChannelWorkspace({ channelKey }: { channelKey: string }) {
                     ))
                 )}
                 {isAwaitingFirstResponseText ? (
-                  <div
-                    className="chat-thinking"
-                    role="status"
-                    aria-live="polite"
-                  >
+                  <div className="chat-thinking">
                     <span className="chat-thinking-avatar" aria-hidden="true">
                       <LuMessageCircle />
                     </span>

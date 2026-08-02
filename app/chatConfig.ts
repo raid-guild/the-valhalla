@@ -5,9 +5,9 @@ export const CHAT_PROVIDERS = {
     models: ["claude-sonnet-4-6", "claude-haiku-4-5"],
   },
   google: {
-    defaultModel: "gemini-2.5-flash",
+    defaultModel: "gemini-3.6-flash",
     label: "Google",
-    models: ["gemini-2.5-flash", "gemini-2.5-pro"],
+    models: ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
   },
   openai: {
     defaultModel: "gpt-5.6-luna",
@@ -21,5 +21,5 @@ export type InferenceProvider = keyof typeof CHAT_PROVIDERS;
 export function isInferenceProvider(
   value: unknown,
 ): value is InferenceProvider {
-  return typeof value === "string" && value in CHAT_PROVIDERS;
+  return typeof value === "string" && Object.hasOwn(CHAT_PROVIDERS, value);
 }

@@ -27,6 +27,9 @@ import { createChatLanguageModel } from "./provider";
 import { parseChannelChatRequest } from "./request";
 
 const MAX_CHAT_REQUEST_BYTES = 128 * 1024;
+const CHAT_ROUTE_DEADLINE_MS = 115_000;
+const MIN_PROVIDER_TIME_MS = 5_000;
+const MAX_PROVIDER_TIME_MS = 90_000;
 
 export const maxDuration = 120;
 export const runtime = "nodejs";
@@ -63,6 +66,10 @@ function errorResponse(
   );
 }
 
+function routeTimeoutResponse() {
+  return errorResponse("Chat request timed out. Please try again.", 504);
+}
+
 function buildInstructions() {
   return `You answer questions about one archived RaidGuild Discord channel.
 
@@ -79,11 +86,9 @@ Rules:
 }
 
 function buildArchiveEnvelope(
-  channelKey: string,
   transcript: Awaited<ReturnType<typeof getChannelTranscript>>,
 ) {
   return JSON.stringify({
-    channelObject: channelKey,
     messages: transcript.messages.map((message) => ({
       author: message.author,
       citation: `M:${message.id}`,
@@ -94,14 +99,24 @@ function buildArchiveEnvelope(
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  const deadlineSignal = AbortSignal.any([
+    request.signal,
+    AbortSignal.timeout(CHAT_ROUTE_DEADLINE_MS),
+  ]);
+
   if (!getSameOrigin(request)) {
     return errorResponse("Invalid request origin", 403);
   }
 
   let memberAddress: string;
   try {
-    memberAddress = await requireMemberSession();
+    memberAddress = await requireMemberSession(deadlineSignal);
   } catch (error: unknown) {
+    if (deadlineSignal.aborted && !request.signal.aborted) {
+      return routeTimeoutResponse();
+    }
+
     const sessionErrorResponse = memberSessionErrorResponse(error);
     if (sessionErrorResponse) return sessionErrorResponse;
 
@@ -133,7 +148,13 @@ export async function POST(request: Request) {
             () => new ChatRequestTooLargeError(),
             {
               createTimeoutError: () => new ChatRequestTimeoutError(),
-              timeoutMs: 10_000,
+              timeoutMs: Math.max(
+                1,
+                Math.min(
+                  10_000,
+                  CHAT_ROUTE_DEADLINE_MS - (Date.now() - startedAt),
+                ),
+              ),
             },
           ),
         )
@@ -147,6 +168,10 @@ export async function POST(request: Request) {
 
     requestBody = parseChannelChatRequest(parsedBody);
   } catch (error: unknown) {
+    if (deadlineSignal.aborted && !request.signal.aborted) {
+      return routeTimeoutResponse();
+    }
+
     if (error instanceof ChatRequestTooLargeError) {
       return errorResponse(error.message, 413);
     }
@@ -169,15 +194,15 @@ export async function POST(request: Request) {
 
   let streamOwnsSlot = false;
   const releaseChat = () => {
-    request.signal.removeEventListener("abort", releaseChat);
+    deadlineSignal.removeEventListener("abort", releaseChat);
     releaseSlot();
   };
-  request.signal.addEventListener("abort", releaseChat, { once: true });
+  deadlineSignal.addEventListener("abort", releaseChat, { once: true });
 
   try {
     const transcript = await getChannelTranscript(
       requestBody.channelKey,
-      request.signal,
+      deadlineSignal,
     );
 
     if (transcript.messages.length === 0) {
@@ -187,13 +212,23 @@ export async function POST(request: Request) {
       );
     }
 
+    const remainingDurationMs =
+      CHAT_ROUTE_DEADLINE_MS - (Date.now() - startedAt);
+    if (remainingDurationMs < MIN_PROVIDER_TIME_MS) {
+      return routeTimeoutResponse();
+    }
+    const providerTimeoutMs = Math.min(
+      MAX_PROVIDER_TIME_MS,
+      remainingDurationMs,
+    );
+
     const result = streamText({
-      abortSignal: request.signal,
+      abortSignal: deadlineSignal,
       instructions: buildInstructions(),
       maxOutputTokens: 400,
       messages: [
         {
-          content: buildArchiveEnvelope(requestBody.channelKey, transcript),
+          content: buildArchiveEnvelope(transcript),
           role: "user",
         },
         ...requestBody.messages.map((message) => ({
@@ -207,9 +242,9 @@ export async function POST(request: Request) {
         requestBody.apiKey,
       ),
       timeout: {
-        chunkMs: 25_000,
-        firstChunkMs: 45_000,
-        totalMs: 90_000,
+        chunkMs: Math.min(25_000, providerTimeoutMs),
+        firstChunkMs: Math.min(45_000, providerTimeoutMs),
+        totalMs: providerTimeoutMs,
       },
       telemetry: { isEnabled: false },
       onAbort: releaseChat,
@@ -244,6 +279,10 @@ export async function POST(request: Request) {
     streamOwnsSlot = true;
     return response;
   } catch (error: unknown) {
+    if (deadlineSignal.aborted && !request.signal.aborted) {
+      return routeTimeoutResponse();
+    }
+
     if (error instanceof ChannelNotFoundError) {
       return errorResponse(error.message, 404);
     }

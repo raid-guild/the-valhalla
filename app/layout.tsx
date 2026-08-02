@@ -9,7 +9,7 @@ import {
 import { WagmiProvider } from "wagmi";
 import { gnosis } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
-import { Analytics } from "@vercel/analytics/next";
+import { Analytics, type BeforeSendEvent } from "@vercel/analytics/next";
 
 import { Header } from "./shared/Header";
 import { ebGaramond, maziusDisplay, ubuntuMono } from "./fonts";
@@ -25,6 +25,18 @@ const config = getDefaultConfig({
 });
 
 const queryClient = new QueryClient();
+
+function redactChannelKey(event: BeforeSendEvent) {
+  try {
+    const url = new URL(event.url);
+    if (url.pathname !== "/channel") return event;
+
+    url.search = "";
+    return { ...event, url: url.toString() };
+  } catch {
+    return null;
+  }
+}
 
 const rainbowBaseTheme = lightTheme({
   accentColor: "#bd482d",
@@ -80,7 +92,7 @@ export default function RootLayout({
             </RainbowKitProvider>
           </QueryClientProvider>
         </WagmiProvider>
-        <Analytics />
+        <Analytics beforeSend={redactChannelKey} />
       </body>
     </html>
   );

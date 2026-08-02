@@ -13,8 +13,10 @@ export async function readByteStream(
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
   let timedOut = false;
+  let completed = false;
   const timeoutId = options
     ? setTimeout(() => {
+        if (completed) return;
         timedOut = true;
         void reader.cancel();
       }, options.timeoutMs)
@@ -23,7 +25,10 @@ export async function readByteStream(
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        completed = true;
+        break;
+      }
 
       totalBytes += value.byteLength;
       if (totalBytes > maxBytes) {

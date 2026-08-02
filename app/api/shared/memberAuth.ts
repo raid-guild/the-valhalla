@@ -92,7 +92,9 @@ function isMembersQueryResponse(value: unknown): value is MembersQueryResponse {
   );
 }
 
-export async function fetchMemberAddresses(): Promise<string[]> {
+export async function fetchMemberAddresses(
+  signal?: AbortSignal,
+): Promise<string[]> {
   const now = Date.now();
   if (memberAddressesCache && memberAddressesCache.expiresAt > now) {
     return memberAddressesCache.addresses;
@@ -129,6 +131,7 @@ export async function fetchMemberAddresses(): Promise<string[]> {
         headers: {
           Origin: "https://admin.daohaus.club",
         },
+        signal,
         timeout: MEMBER_ADDRESSES_REQUEST_TIMEOUT_MS,
       },
     );
@@ -157,8 +160,11 @@ export async function fetchMemberAddresses(): Promise<string[]> {
   throw new Error("Member lookup exceeded maximum page count");
 }
 
-export async function isEligibleMemberAddress(address: string) {
-  const members = await fetchMemberAddresses();
+export async function isEligibleMemberAddress(
+  address: string,
+  signal?: AbortSignal,
+) {
+  const members = await fetchMemberAddresses(signal);
   return members.includes(address.toLowerCase());
 }
 
@@ -184,13 +190,13 @@ export function memberSessionErrorResponse(error: unknown) {
   );
 }
 
-export async function requireMemberSession() {
+export async function requireMemberSession(signal?: AbortSignal) {
   const address = await readSessionAddress();
   if (!address) {
     throw new MemberSessionError("Authentication required.", 401);
   }
 
-  if (!(await isEligibleMemberAddress(address))) {
+  if (!(await isEligibleMemberAddress(address, signal))) {
     throw new MemberSessionError(NOT_MEMBER_ERROR, 403);
   }
 
