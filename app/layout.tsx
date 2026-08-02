@@ -9,6 +9,7 @@ import {
 import { WagmiProvider } from "wagmi";
 import { gnosis } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { Analytics } from "@vercel/analytics/next";
 
 import { Header } from "./shared/Header";
 import { ebGaramond, maziusDisplay, ubuntuMono } from "./fonts";
@@ -79,6 +80,7 @@ export default function RootLayout({
             </RainbowKitProvider>
           </QueryClientProvider>
         </WagmiProvider>
+        <Analytics />
       </body>
     </html>
   );
